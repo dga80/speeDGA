@@ -131,14 +131,14 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     // Guardar en Supabase
     try {
       await Supabase.instance.client.from('registros_velocidad').insert({
-        'usuario_id': Supabase.instance.client.auth.currentUser?.id ?? '00000000-0000-0000-0000-000000000000',
+        'fecha_registro': DateTime.now().toIso8601String(),
         'distancia_recorrida_km': _totalDistance,
         'velocidad_maxima_kmh': _maxSpeed,
         'tiempo_total_segundos': _duration.inSeconds,
       });
       _showSnack("Trayecto guardado en speeDGA");
     } catch (e) {
-      _showSnack("Guardado local (Configura RLS en Supabase)");
+      _showSnack("Error al guardar: ${e.toString()}");
     }
   }
 
