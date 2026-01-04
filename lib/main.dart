@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'history_screen.dart'; // Importar la nueva pantalla
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Configuración de speeDGA con tus credenciales de Supabase
   await Supabase.initialize(
     url: 'https://npoekhbuijevesjjbbyx.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wb2VraGJ1aWpldmVzampiYnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjMwMjcsImV4cCI6MjA4Mjk5OTAyN30.ZEmWiOdyHrIsv4pPP7eYSdzP2lNAEmpwCPdOPeWnzjU',
@@ -52,6 +52,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   Timer? _timer;
   Position? _lastPosition;
   StreamSubscription<Position>? _positionStream;
+  final List<Map<String, double>> _routePoints = []; // Lista para guardar la ruta
 
   @override
   void initState() {
@@ -61,7 +62,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
   void _initApp() async {
     await _checkPermissions();
-    WakelockPlus.enable(); // Mantiene la pantalla encendida
+    WakelockPlus.enable();
   }
 
   Future<void> _checkPermissions() async {
@@ -87,28 +88,26 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     _totalDistance = 0.0;
     _maxSpeed = 0.0;
     _duration = Duration.zero;
+    _routePoints.clear(); // Limpiar la ruta anterior
     
-    // Iniciar Cronómetro
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _duration = DateTime.now().difference(_startTime!);
       });
     });
 
-    // Iniciar GPS
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 2, // Actualiza cada 2 metros
+        distanceFilter: 5, // Actualiza cada 5 metros para no saturar
       ),
     ).listen(_updateLocation);
   }
 
   void _updateLocation(Position position) {
     setState(() {
-      // m/s a km/h
       _currentSpeed = position.speed * 3.6;
-      if (_currentSpeed < 1.0) _currentSpeed = 0.0; // Filtro de ruido
+      if (_currentSpeed < 1.0) _currentSpeed = 0.0;
       if (_currentSpeed > _maxSpeed) _maxSpeed = _currentSpeed;
 
       if (_lastPosition != null) {
@@ -119,6 +118,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         _totalDistance += distance / 1000;
       }
       _lastPosition = position;
+      _routePoints.add({'lat': position.latitude, 'lng': position.longitude});
     });
   }
 
@@ -130,13 +130,18 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
     // Guardar en Supabase
     try {
-      await Supabase.instance.client.from('registros_velocidad').insert({
-        'fecha_registro': DateTime.now().toIso8601String(),
-        'distancia_recorrida_km': _totalDistance,
-        'velocidad_maxima_kmh': _maxSpeed,
-        'tiempo_total_segundos': _duration.inSeconds,
-      });
-      _showSnack("Trayecto guardado en speeDGA");
+      if (_totalDistance > 0.01) { // Solo guardar si hay movimiento
+        await Supabase.instance.client.from('registros_velocidad').insert({
+          'fecha_registro': DateTime.now().toIso8601String(),
+          'distancia_recorrida_km': _totalDistance,
+          'velocidad_maxima_kmh': _maxSpeed,
+          'tiempo_total_segundos': _duration.inSeconds,
+          'ruta_coordenadas': _routePoints // Guardar la ruta
+        });
+        _showSnack("Trayecto guardado en speeDGA");
+      } else {
+        _showSnack("Trayecto demasiado corto, no se ha guardado.");
+      }
     } catch (e) {
       _showSnack("Error al guardar: ${e.toString()}");
     }
@@ -145,6 +150,10 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
+  
+  void _navigateToHistory() {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -152,41 +161,48 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Superior: Hora actual
+            // Superior: Hora y Botón de Historial
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: StreamBuilder(
-                  stream: Stream.periodic(const Duration(seconds: 1)),
-                  builder: (context, snapshot) {
-                    final now = DateTime.now();
-                    return Text(
-                      "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
-                      style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
-                    );
-                  },
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Botón de Historial
+                  IconButton(
+                      icon: const Icon(Icons.history, color: Colors.white70, size: 30),
+                      onPressed: _navigateToHistory, 
+                      tooltip: 'Historial de Trayectos'
+                  ),
+                  // Hora Actual
+                  StreamBuilder(
+                    stream: Stream.periodic(const Duration(seconds: 1)),
+                    builder: (context, snapshot) {
+                      final now = DateTime.now();
+                      return Text(
+                        "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
+                        style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             
             const Spacer(),
 
-            // Centro: Velocímetro Gigante
+            // Velocímetro
             Text(
               _currentSpeed.toStringAsFixed(0),
               style: const TextStyle(
-                fontSize: 180,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF00FF41), // Verde Neón
-                letterSpacing: -5,
+                fontSize: 180, fontWeight: FontWeight.w900,
+                color: Color(0xFF00FF41), letterSpacing: -5,
               ),
             ),
             const Text("KM/H", style: TextStyle(fontSize: 24, color: Colors.white38, letterSpacing: 4)),
 
             const Spacer(),
 
-            // Inferior: Estadísticas
+            // Estadísticas
             Container(
               padding: const EdgeInsets.symmetric(vertical: 30),
               decoration: BoxDecoration(
@@ -198,7 +214,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 children: [
                   _buildStat("DISTANCIA", "${_totalDistance.toStringAsFixed(2)} km"),
                   _buildStat("TIEMPO", _formatDuration(_duration)),
-                  _buildStat("MÁXIMA", "${_maxSpeed.toStringAsFixed(1)}"),
+                  _buildStat("MÁXIMA", _maxSpeed.toStringAsFixed(1)),
                 ],
               ),
             ),
