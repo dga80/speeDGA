@@ -29,8 +29,8 @@ class MapScreen extends StatelessWidget {
       ),
       body: FlutterMap(
         options: MapOptions(
-          center: center,
-          zoom: 14.0,
+          initialCenter: center, // CORREGIDO: center -> initialCenter
+          initialZoom: 14.0,   // CORREGIDO: zoom -> initialZoom
         ),
         children: [
           TileLayer(
