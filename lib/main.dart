@@ -341,7 +341,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
   Widget _buildWeatherInfo() {
     if (_weatherError) {
-       return const Row(children: [Text("⚠️", style: TextStyle(fontSize: 24)), SizedBox(width: 8), Text("Error Clima", style: TextStyle(color: Colors.redAccent))]);
+       return Row(children: [const Text("⚠️", style: TextStyle(fontSize: 24)), const SizedBox(width: 8), const Text("Error Clima", style: TextStyle(color: Colors.redAccent))]);
     }
     if (_currentTemp == null) return const Text("Cargando...", style: TextStyle(color: Colors.white38));
     return Row(
