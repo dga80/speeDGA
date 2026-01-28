@@ -60,6 +60,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   final WeatherService _weatherService = WeatherService();
   double? _currentTemp;
   int? _weatherCode;
+  bool _weatherError = false; // Nuevo estado de error
   DateTime? _lastWeatherUpdate;
 
   @override
@@ -219,12 +220,17 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     if (_lastWeatherUpdate != null && DateTime.now().difference(_lastWeatherUpdate!).inMinutes < 15) return;
 
     final data = await _weatherService.getWeather(lat, lon);
-    if (data.isNotEmpty) {
-      if (mounted) {
+    if (mounted) {
+      if (data.isNotEmpty) {
         setState(() {
           _currentTemp = data['temperature'];
           _weatherCode = data['weathercode'];
+          _weatherError = false;
           _lastWeatherUpdate = DateTime.now();
+        });
+      } else {
+        setState(() {
+          _weatherError = true;
         });
       }
     }
@@ -334,7 +340,10 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
 
   Widget _buildWeatherInfo() {
-    if (_currentTemp == null) return const SizedBox.shrink();
+    if (_weatherError) {
+       return const Row(children: [Text("⚠️", style: TextStyle(fontSize: 24)), SizedBox(width: 8), Text("Error Clima", style: TextStyle(color: Colors.redAccent))]);
+    }
+    if (_currentTemp == null) return const Text("Cargando...", style: TextStyle(color: Colors.white38));
     return Row(
       children: [
         Text(
