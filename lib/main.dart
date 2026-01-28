@@ -71,6 +71,14 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   void _initApp() async {
     await _checkPermissions();
     WakelockPlus.enable();
+    
+    // Obtener ubicación inicial para el clima
+    try {
+      Position position = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.low));
+      _fetchWeather(position.latitude, position.longitude);
+    } catch (e) {
+      debugPrint("Error al obtener ubicación inicial: $e");
+    }
   }
 
   Future<void> _checkPermissions() async {
