@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
+
 import 'history_screen.dart';
 import 'weather_service.dart';
 
