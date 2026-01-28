@@ -73,14 +73,27 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     await _checkPermissions();
     WakelockPlus.enable();
     
-    // Obtener ubicación inicial para el clima
+    // 1. Intentar última ubicación conocida (Rápido)
+    try {
+      Position? position = await Geolocator.getLastKnownPosition();
+      if (position != null) {
+         _fetchWeather(position.latitude, position.longitude);
+         return; 
+      }
+    } catch (e) { /* Ignorar error en last known */ }
+
+    // 2. Si no hay, intentar GPS actual (Lento, con timeout de 10s)
     try {
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.low)
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 10));
       _fetchWeather(position.latitude, position.longitude);
     } catch (e) {
       debugPrint("Error al obtener ubicación inicial: $e");
+      // 3. Si falla todo, mostrar error en UI
+      if (mounted) {
+        setState(() => _weatherError = true);
+      }
     }
   }
 
