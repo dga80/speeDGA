@@ -75,7 +75,9 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     
     // Obtener ubicación inicial para el clima
     try {
-      Position position = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.low));
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low)
+      ).timeout(const Duration(seconds: 5));
       _fetchWeather(position.latitude, position.longitude);
     } catch (e) {
       debugPrint("Error al obtener ubicación inicial: $e");
