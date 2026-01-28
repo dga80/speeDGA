@@ -24,6 +24,7 @@ dependencies:
   wakelock_plus: ^1.2.8
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

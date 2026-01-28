@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'history_screen.dart'; // Importar la nueva pantalla
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'history_screen.dart';
+import 'weather_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +55,12 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   Position? _lastPosition;
   StreamSubscription<Position>? _positionStream;
   final List<Map<String, double>> _routePoints = []; // Lista para guardar la ruta
+
+  // --- Clima ---
+  final WeatherService _weatherService = WeatherService();
+  double? _currentTemp;
+  int? _weatherCode;
+  DateTime? _lastWeatherUpdate;
 
   @override
   void initState() {
@@ -168,6 +176,9 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       _lastPosition = position;
       _routePoints.add({'lat': position.latitude, 'lng': position.longitude});
     });
+    
+    // Intentar actualizar clima
+    _fetchWeather(position.latitude, position.longitude);
   }
 
   void _stopTrip() async {
@@ -192,6 +203,22 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       }
     } catch (e) {
       _showSnack("Error al guardar: ${e.toString()}");
+    }
+  }
+
+  Future<void> _fetchWeather(double lat, double lon) async {
+    // Actualizar solo cada 15 minutos o si no hay datos
+    if (_lastWeatherUpdate != null && DateTime.now().difference(_lastWeatherUpdate!).inMinutes < 15) return;
+
+    final data = await _weatherService.getWeather(lat, lon);
+    if (data.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _currentTemp = data['temperature'];
+          _weatherCode = data['weathercode'];
+          _lastWeatherUpdate = DateTime.now();
+        });
+      }
     }
   }
 
@@ -221,16 +248,22 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                       onPressed: _navigateToHistory, 
                       tooltip: 'Historial de Trayectos'
                   ),
-                  // Hora Actual
-                  StreamBuilder(
-                    stream: Stream.periodic(const Duration(seconds: 1)),
-                    builder: (context, snapshot) {
-                      final now = DateTime.now();
-                      return Text(
-                        "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
-                        style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
-                      );
-                    },
+                  // Hora Actual y Clima
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildWeatherInfo(),
+                      StreamBuilder(
+                        stream: Stream.periodic(const Duration(seconds: 1)),
+                        builder: (context, snapshot) {
+                          final now = DateTime.now();
+                          return Text(
+                            "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
+                            style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -287,6 +320,25 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
           ],
         ),
       ),
+    );
+  }
+
+
+
+  Widget _buildWeatherInfo() {
+    if (_currentTemp == null) return const SizedBox.shrink();
+    return Row(
+      children: [
+        Text(
+          _weatherService.getWeatherIcon(_weatherCode ?? -1),
+          style: const TextStyle(fontSize: 24),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          "${_currentTemp!.toStringAsFixed(1)}°C",
+          style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
+        ),
+      ],
     );
   }
 
