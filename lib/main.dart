@@ -72,6 +72,39 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   void _initApp() async {
     await _checkPermissions();
     WakelockPlus.enable();
+    
+    // Cargar clima inicial
+    _loadInitialWeather();
+  }
+
+  Future<void> _loadInitialWeather() async {
+    try {
+      // Intentar obtener la última posición conocida primero (más rápido)
+      Position? position = await Geolocator.getLastKnownPosition();
+      
+      // Si no hay última posición conocida, obtener posición actual con timeout
+      position ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low, // Baja precisión es suficiente para el clima
+          timeLimit: Duration(seconds: 10),
+        ),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('GPS timeout'),
+      );
+      
+      if (position != null) {
+        await _fetchWeather(position.latitude, position.longitude);
+      }
+    } catch (e) {
+      print("⚠️ Error cargando clima inicial: $e");
+      // Establecer estado de error pero no bloquear la app
+      if (mounted) {
+        setState(() {
+          _weatherError = true;
+        });
+      }
+    }
   }
 
   Future<void> _checkPermissions() async {
@@ -166,6 +199,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   void _startNewTrip() {
+    print("🚀 Iniciando nuevo trayecto...");
     _startTime = DateTime.now();
     _totalDistance = 0.0;
     _maxSpeed = 0.0;
@@ -184,14 +218,20 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         distanceFilter: 5, // Actualiza cada 5 metros para no saturar
       ),
     ).listen(
-      _updateLocation,
+      (position) {
+        print("📍 Stream de posición recibió datos");
+        _updateLocation(position);
+      },
       onError: (e) {
+        print("❌ Error en stream de posición: $e");
         _showSnack("⚠️ Error de ubicación: $e");
       },
     );
   }
 
   void _updateLocation(Position position) {
+    print("📍 Actualización GPS: lat=${position.latitude.toStringAsFixed(4)}, lon=${position.longitude.toStringAsFixed(4)}, velocidad=${position.speed.toStringAsFixed(2)} m/s");
+    
     setState(() {
       _currentSpeed = position.speed * 3.6;
       if (_currentSpeed < 1.0) _currentSpeed = 0.0;
