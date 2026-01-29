@@ -1,0 +1,8 @@
+[build]
+  command = 'if command -v flutter >/dev/null 2>&1; then flutter build web; elif [ -x "./flutter/bin/flutter" ]; then ./flutter/bin/flutter build web; else git clone https://github.com/flutter/flutter.git -b stable && ./flutter/bin/flutter build web; fi'
+  publish = "build/web"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
