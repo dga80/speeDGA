@@ -6,17 +6,21 @@ class WeatherService {
 
   Future<Map<String, dynamic>> getWeather(double lat, double lon) async {
     try {
+      print("🌤️ Solicitando clima para lat=$lat, lon=$lon");
       final url = Uri.parse('$_baseUrl?latitude=$lat&longitude=$lon&current_weather=true');
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
+      print("🌤️ Respuesta clima: status=${response.statusCode}");
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print("🌤️ Datos clima recibidos: ${data['current_weather']}");
         return data['current_weather'];
       } else {
-        throw Exception('Error al cargar clima');
+        print("❌ Error clima: HTTP ${response.statusCode}");
+        throw Exception('Error al cargar clima: ${response.statusCode}');
       }
     } catch (e) {
-      print("Error WeatherService: $e");
+      print("❌ Error WeatherService: $e");
       return {}; 
     }
   }
