@@ -24,6 +24,9 @@ dependencies:
   wakelock_plus: ^1.2.8
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
+  
+  # Gestión de permisos en tiempo de ejecución
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

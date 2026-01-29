@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'history_screen.dart'; // Importar la nueva pantalla
 
 void main() async {
@@ -66,30 +67,60 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   Future<void> _checkPermissions() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // 1. Check if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    // 1. Verificar si los servicios de ubicación están habilitados
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      _showSnack('⚠️ Los servicios de ubicación están desactivados.');
+      _showDialog(
+        '📍 Ubicación Desactivada',
+        'Los servicios de ubicación están desactivados en tu dispositivo. Por favor, actívalos para usar speeDGA.',
+      );
       return;
     }
 
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showSnack('⚠️ Permiso de ubicación denegado.');
-        return;
-      }
+    // 2. Solicitar permiso de ubicación usando permission_handler
+    PermissionStatus status = await Permission.location.status;
+    
+    if (status.isDenied) {
+      // Solicitar permiso por primera vez
+      status = await Permission.location.request();
     }
     
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately. 
-      _showDialog('Permisos Denegados', 'Los permisos de ubicación están denegados permanentemente. Por favor, actívalos en la configuración del dispositivo para usar la app.');
+    if (status.isDenied) {
+      // El usuario denegó el permiso
+      _showDialog(
+        '⚠️ Permiso Denegado',
+        'speeDGA necesita acceso a tu ubicación para funcionar. Por favor, concede el permiso cuando se te solicite.',
+      );
       return;
-    } 
+    }
+    
+    if (status.isPermanentlyDenied) {
+      // El usuario denegó permanentemente el permiso
+      _showDialog(
+        '🔒 Permiso Bloqueado',
+        'Los permisos de ubicación están bloqueados permanentemente. Por favor, ve a los ajustes de Android y activa manualmente el permiso de ubicación para speeDGA.',
+      );
+      return;
+    }
+    
+    // 3. Verificar también con Geolocator (doble verificación)
+    LocationPermission geoPermission = await Geolocator.checkPermission();
+    if (geoPermission == LocationPermission.denied) {
+      geoPermission = await Geolocator.requestPermission();
+    }
+    
+    if (geoPermission == LocationPermission.deniedForever) {
+      _showDialog(
+        '🔒 Permiso Bloqueado',
+        'Los permisos de ubicación están bloqueados. Abre los ajustes de Android y activa el permiso de ubicación para speeDGA.',
+      );
+      return;
+    }
+    
+    // Si llegamos aquí, todo está bien
+    if (status.isGranted && geoPermission != LocationPermission.denied) {
+      _showSnack('✅ Permisos de ubicación concedidos correctamente');
+    }
   }
 
   void _showDialog(String title, String content) {
