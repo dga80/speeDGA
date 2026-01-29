@@ -27,6 +27,7 @@ dependencies:
   
   # Gestión de permisos en tiempo de ejecución
   permission_handler: ^11.3.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
