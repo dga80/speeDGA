@@ -6,6 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'history_screen.dart'; // Importar la nueva pantalla
 import 'weather_service.dart';
+import 'raw_gps_service.dart'; // Raw GPS access
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,9 +53,12 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   DateTime? _startTime;
   Duration _duration = Duration.zero;
   Timer? _timer;
-  Position? _lastPosition;
-  StreamSubscription<Position>? _positionStream;
+  double? _lastLatitude;
+  double? _lastLongitude;
+  StreamSubscription<RawGpsData>? _gpsStream;
+  final RawGpsService _rawGpsService = RawGpsService();
   final List<Map<String, double>> _routePoints = []; // Lista para guardar la ruta
+  int _satelliteCount = 0; // Satellite count from GNSS
 
   // --- Weather State ---
   final WeatherService _weatherService = WeatherService();
@@ -199,12 +203,14 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   void _startNewTrip() {
-    print("🚀 Iniciando nuevo trayecto...");
+    print("🚀 Iniciando nuevo trayecto con RAW GPS...");
     _startTime = DateTime.now();
     _totalDistance = 0.0;
     _maxSpeed = 0.0;
     _duration = Duration.zero;
     _routePoints.clear(); // Limpiar la ruta anterior
+    _lastLatitude = null;
+    _lastLongitude = null;
     
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -212,51 +218,55 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       });
     });
 
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // Actualiza cada 5 metros para no saturar
-      ),
-    ).listen(
-      (position) {
-        print("📍 Stream de posición recibió datos");
-        _updateLocation(position);
+    // Use RAW GPS service instead of geolocator
+    _gpsStream = _rawGpsService.locationStream.listen(
+      (gpsData) {
+        print("📍 RAW GPS: lat=${gpsData.latitude.toStringAsFixed(4)}, lon=${gpsData.longitude.toStringAsFixed(4)}, speed=${gpsData.speed.toStringAsFixed(2)} m/s, sats=${gpsData.satelliteCount}");
+        _updateLocationFromRawGps(gpsData);
       },
       onError: (e) {
-        print("❌ Error en stream de posición: $e");
-        _showSnack("⚠️ Error de ubicación: $e");
+        print("❌ Error en RAW GPS stream: $e");
+        _showSnack("⚠️ Error de GPS: $e");
       },
     );
   }
 
-  void _updateLocation(Position position) {
-    print("📍 Actualización GPS: lat=${position.latitude.toStringAsFixed(4)}, lon=${position.longitude.toStringAsFixed(4)}, velocidad=${position.speed.toStringAsFixed(2)} m/s");
-    
+  void _updateLocationFromRawGps(RawGpsData gpsData) {
     setState(() {
-      _currentSpeed = position.speed * 3.6;
+      // Use RAW speed directly from GPS sensor (no filtering!)
+      _currentSpeed = gpsData.speedKmh;
+      
+      // Filter out very low speeds (GPS noise when stationary)
       if (_currentSpeed < 1.0) _currentSpeed = 0.0;
+      
+      // Update max speed
       if (_currentSpeed > _maxSpeed) _maxSpeed = _currentSpeed;
 
-      if (_lastPosition != null) {
+      // Calculate distance
+      if (_lastLatitude != null && _lastLongitude != null) {
         double distance = Geolocator.distanceBetween(
-          _lastPosition!.latitude, _lastPosition!.longitude,
-          position.latitude, position.longitude
+          _lastLatitude!, _lastLongitude!,
+          gpsData.latitude, gpsData.longitude
         );
         _totalDistance += distance / 1000;
       }
-      _lastPosition = position;
-      _routePoints.add({'lat': position.latitude, 'lng': position.longitude});
+      
+      _lastLatitude = gpsData.latitude;
+      _lastLongitude = gpsData.longitude;
+      _satelliteCount = gpsData.satelliteCount;
+      _routePoints.add({'lat': gpsData.latitude, 'lng': gpsData.longitude});
     });
 
     // Intentar actualizar clima
-    _fetchWeather(position.latitude, position.longitude);
+    _fetchWeather(gpsData.latitude, gpsData.longitude);
   }
 
   void _stopTrip() async {
     _timer?.cancel();
-    _positionStream?.cancel();
+    _gpsStream?.cancel();
     _currentSpeed = 0.0;
-    _lastPosition = null;
+    _lastLatitude = null;
+    _lastLongitude = null;
 
     // Guardar en Supabase
     try {
@@ -318,11 +328,41 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Botón de Historial
-                  IconButton(
-                      icon: const Icon(Icons.history, color: Colors.white70, size: 30),
-                      onPressed: _navigateToHistory, 
-                      tooltip: 'Historial de Trayectos'
+                  // Botón de Historial y Satélites
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.history, color: Colors.white70, size: 30),
+                        onPressed: _navigateToHistory, 
+                        tooltip: 'Historial de Trayectos'
+                      ),
+                      if (_isTracking && _satelliteCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _satelliteCount >= 4 ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.satellite_alt,
+                                size: 16,
+                                color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$_satelliteCount',
+                                style: TextStyle(
+                                  color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                   // Hora Actual y Clima
                   Column(
@@ -436,7 +476,9 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   @override
   void dispose() {
     _timer?.cancel();
-    _positionStream?.cancel();
+    _gpsStream?.cancel();
+    _rawGpsService.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 }
