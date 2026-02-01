@@ -97,10 +97,8 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         onTimeout: () => throw TimeoutException('GPS timeout'),
       );
       
-      if (position != null) {
-        await _fetchWeather(position.latitude, position.longitude);
-      }
-    } catch (e) {
+      await _fetchWeather(position.latitude, position.longitude);
+        } catch (e) {
       print("⚠️ Error cargando clima inicial: $e");
       // Establecer estado de error pero no bloquear la app
       if (mounted) {
