@@ -441,11 +441,11 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     if (_weatherError) {
        return Row(children: [const Text("⚠️", style: TextStyle(fontSize: 24)), const SizedBox(width: 8), const Text("Error Clima", style: TextStyle(color: Colors.redAccent))]);
     }
-    if (_currentTemp == null) return const Text("Cargando...", style: TextStyle(color: Colors.white38));
+    if (_currentTemp == null || _weatherCode == null) return const Text("Cargando...", style: TextStyle(color: Colors.white38));
     return Row(
       children: [
         Text(
-          _weatherService.getWeatherIcon(_weatherCode ?? -1),
+          _weatherService.getWeatherIcon(_weatherCode!),
           style: const TextStyle(fontSize: 24),
         ),
         const SizedBox(width: 8),

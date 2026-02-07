@@ -36,6 +36,7 @@ class MapScreen extends StatelessWidget {
           TileLayer(
             urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             subdomains: const ['a', 'b', 'c'],
+            userAgentPackageName: 'com.example.myapp', // Identificación para OpenStreetMap
           ),
           PolylineLayer(
             polylines: [
