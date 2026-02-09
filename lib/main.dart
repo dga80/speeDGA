@@ -6,7 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_native_timezone/flutter_native_timezone.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'history_screen.dart'; // Importar la nueva pantalla
 import 'weather_service.dart';
 import 'raw_gps_service.dart'; // Raw GPS access
@@ -17,7 +17,7 @@ void main() async {
   // Inicializar zona horaria
   tz.initializeTimeZones();
   try {
-    final String currentTimeZone = await FlutterNativeTimezone.getLocalTimezone();
+    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(currentTimeZone));
   } catch (e) {
     print('⚠️ Error obteniendo zona horaria: $e');
