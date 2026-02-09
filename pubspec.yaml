@@ -28,6 +28,10 @@ dependencies:
   # Gestión de permisos en tiempo de ejecución
   permission_handler: ^11.3.1
   http: ^1.2.0
+  
+  # Zona horaria para mostrar hora de Barcelona
+  timezone: ^0.9.4
+  flutter_native_timezone: ^2.0.0
 
 dev_dependencies:
   flutter_test:

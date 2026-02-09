@@ -26,39 +26,59 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            // Send raw GPS data to Flutter
-            val data = hashMapOf(
-                "latitude" to location.latitude,
-                "longitude" to location.longitude,
-                "speed" to location.speed.toDouble(), // m/s - RAW speed from GPS
-                "accuracy" to location.accuracy.toDouble(),
-                "altitude" to location.altitude,
-                "bearing" to location.bearing.toDouble(),
-                "timestamp" to location.time,
-                "satelliteCount" to satelliteCount,
-                "provider" to location.provider
-            )
-            eventSink?.success(data)
+            try {
+                // Send raw GPS data to Flutter
+                val data = hashMapOf(
+                    "latitude" to location.latitude,
+                    "longitude" to location.longitude,
+                    "speed" to location.speed.toDouble(), // m/s - RAW speed from GPS
+                    "accuracy" to location.accuracy.toDouble(),
+                    "altitude" to location.altitude,
+                    "bearing" to location.bearing.toDouble(),
+                    "timestamp" to location.time,
+                    "satelliteCount" to satelliteCount,
+                    "provider" to (location.provider ?: "unknown")
+                )
+                eventSink?.success(data)
+            } catch (e: Exception) {
+                android.util.Log.e("RawGpsPlugin", "Error in onLocationChanged: ${e.message}")
+            }
         }
 
         override fun onProviderEnabled(provider: String) {
-            eventSink?.success(hashMapOf("event" to "provider_enabled", "provider" to provider))
+            try {
+                eventSink?.success(hashMapOf("event" to "provider_enabled", "provider" to provider))
+            } catch (e: Exception) {
+                android.util.Log.e("RawGpsPlugin", "Error in onProviderEnabled: ${e.message}")
+            }
         }
 
         override fun onProviderDisabled(provider: String) {
-            eventSink?.success(hashMapOf("event" to "provider_disabled", "provider" to provider))
+            try {
+                eventSink?.success(hashMapOf("event" to "provider_disabled", "provider" to provider))
+            } catch (e: Exception) {
+                android.util.Log.e("RawGpsPlugin", "Error in onProviderDisabled: ${e.message}")
+            }
         }
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        context = binding.applicationContext
-        methodChannel = MethodChannel(binding.binaryMessenger, "raw_gps/method")
-        methodChannel.setMethodCallHandler(this)
-        
-        eventChannel = EventChannel(binding.binaryMessenger, "raw_gps/location")
-        eventChannel.setStreamHandler(this)
-        
-        locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        try {
+            context = binding.applicationContext
+            methodChannel = MethodChannel(binding.binaryMessenger, "raw_gps/method")
+            methodChannel.setMethodCallHandler(this)
+            
+            eventChannel = EventChannel(binding.binaryMessenger, "raw_gps/location")
+            eventChannel.setStreamHandler(this)
+            
+            locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            
+            if (locationManager == null) {
+                android.util.Log.e("RawGpsPlugin", "LocationManager is null!")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("RawGpsPlugin", "Error in onAttachedToEngine: ${e.message}")
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -86,6 +106,11 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     }
 
     private fun startLocationUpdates(result: MethodChannel.Result) {
+        if (locationManager == null) {
+            result.error("NO_LOCATION_MANAGER", "LocationManager not available", null)
+            return
+        }
+        
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) 
             != PackageManager.PERMISSION_GRANTED) {
             result.error("PERMISSION_DENIED", "Location permission not granted", null)
@@ -106,28 +131,45 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
 
             // Register GNSS Status listener to monitor satellite count and signal quality
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                gnssCallback = object : GnssStatus.Callback() {
-                    override fun onSatelliteStatusChanged(status: GnssStatus) {
-                        satelliteCount = status.satelliteCount
-                        
-                        // Optional: Send detailed satellite info to Flutter
-                        val satelliteInfo = hashMapOf(
-                            "event" to "gnss_status",
-                            "satelliteCount" to satelliteCount,
-                            "usedInFix" to (0 until satelliteCount).count { status.usedInFix(it) }
-                        )
-                        eventSink?.success(satelliteInfo)
-                    }
+                try {
+                    gnssCallback = object : GnssStatus.Callback() {
+                        override fun onSatelliteStatusChanged(status: GnssStatus) {
+                            try {
+                                satelliteCount = status.satelliteCount
+                                
+                                // Optional: Send detailed satellite info to Flutter
+                                val satelliteInfo = hashMapOf(
+                                    "event" to "gnss_status",
+                                    "satelliteCount" to satelliteCount,
+                                    "usedInFix" to (0 until satelliteCount).count { status.usedInFix(it) }
+                                )
+                                eventSink?.success(satelliteInfo)
+                            } catch (e: Exception) {
+                                android.util.Log.e("RawGpsPlugin", "Error in onSatelliteStatusChanged: ${e.message}")
+                            }
+                        }
 
-                    override fun onStarted() {
-                        eventSink?.success(hashMapOf("event" to "gnss_started"))
-                    }
+                        override fun onStarted() {
+                            try {
+                                eventSink?.success(hashMapOf("event" to "gnss_started"))
+                            } catch (e: Exception) {
+                                android.util.Log.e("RawGpsPlugin", "Error in onStarted: ${e.message}")
+                            }
+                        }
 
-                    override fun onStopped() {
-                        eventSink?.success(hashMapOf("event" to "gnss_stopped"))
+                        override fun onStopped() {
+                            try {
+                                eventSink?.success(hashMapOf("event" to "gnss_stopped"))
+                            } catch (e: Exception) {
+                                android.util.Log.e("RawGpsPlugin", "Error in onStopped: ${e.message}")
+                            }
+                        }
                     }
+                    locationManager?.registerGnssStatusCallback(gnssCallback!!, null)
+                } catch (e: Exception) {
+                    android.util.Log.e("RawGpsPlugin", "Error registering GNSS callback: ${e.message}")
+                    // Continue without GNSS status - not critical
                 }
-                locationManager?.registerGnssStatusCallback(gnssCallback!!, null)
             }
 
             result.success(true)
@@ -137,11 +179,15 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     }
 
     private fun stopLocationUpdates() {
-        locationManager?.removeUpdates(locationListener)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssCallback != null) {
-            locationManager?.unregisterGnssStatusCallback(gnssCallback!!)
+        try {
+            locationManager?.removeUpdates(locationListener)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssCallback != null) {
+                locationManager?.unregisterGnssStatusCallback(gnssCallback!!)
+            }
+            satelliteCount = 0
+        } catch (e: Exception) {
+            android.util.Log.e("RawGpsPlugin", "Error stopping location updates: ${e.message}")
         }
-        satelliteCount = 0
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {

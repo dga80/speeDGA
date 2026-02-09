@@ -4,12 +4,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 import 'history_screen.dart'; // Importar la nueva pantalla
 import 'weather_service.dart';
 import 'raw_gps_service.dart'; // Raw GPS access
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inicializar zona horaria
+  tz.initializeTimeZones();
+  try {
+    final String currentTimeZone = await FlutterNativeTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(currentTimeZone));
+  } catch (e) {
+    print('⚠️ Error obteniendo zona horaria: $e');
+    // Fallback a Barcelona si falla
+    tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
+  }
   
   await Supabase.initialize(
     url: 'https://npoekhbuijevesjjbbyx.supabase.co',
@@ -56,9 +70,10 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   double? _lastLatitude;
   double? _lastLongitude;
   StreamSubscription<RawGpsData>? _gpsStream;
-  final RawGpsService _rawGpsService = RawGpsService();
+  RawGpsService? _rawGpsService; // Nullable para manejo de errores
   final List<Map<String, double>> _routePoints = []; // Lista para guardar la ruta
   int _satelliteCount = 0; // Satellite count from GNSS
+  bool _gpsServiceInitialized = false;
 
   // --- Weather State ---
   final WeatherService _weatherService = WeatherService();
@@ -74,6 +89,15 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   void _initApp() async {
+    // Inicializar servicio GPS con manejo de errores
+    try {
+      _rawGpsService = RawGpsService();
+      _gpsServiceInitialized = true;
+    } catch (e) {
+      print('⚠️ Error inicializando RawGpsService: $e');
+      _gpsServiceInitialized = false;
+    }
+    
     await _checkPermissions();
     WakelockPlus.enable();
     
@@ -217,16 +241,25 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     });
 
     // Use RAW GPS service instead of geolocator
-    _gpsStream = _rawGpsService.locationStream.listen(
-      (gpsData) {
-        print("📍 RAW GPS: lat=${gpsData.latitude.toStringAsFixed(4)}, lon=${gpsData.longitude.toStringAsFixed(4)}, speed=${gpsData.speed.toStringAsFixed(2)} m/s, sats=${gpsData.satelliteCount}");
-        _updateLocationFromRawGps(gpsData);
-      },
-      onError: (e) {
-        print("❌ Error en RAW GPS stream: $e");
-        _showSnack("⚠️ Error de GPS: $e");
-      },
-    );
+    if (_gpsServiceInitialized && _rawGpsService != null) {
+      try {
+        _gpsStream = _rawGpsService!.locationStream.listen(
+          (gpsData) {
+            print("📍 RAW GPS: lat=${gpsData.latitude.toStringAsFixed(4)}, lon=${gpsData.longitude.toStringAsFixed(4)}, speed=${gpsData.speed.toStringAsFixed(2)} m/s, sats=${gpsData.satelliteCount}");
+            _updateLocationFromRawGps(gpsData);
+          },
+          onError: (e) {
+            print("❌ Error en RAW GPS stream: $e");
+            _showSnack("⚠️ Error de GPS: $e");
+          },
+        );
+      } catch (e) {
+        print("❌ Error iniciando stream GPS: $e");
+        _showSnack("⚠️ No se pudo iniciar el GPS");
+      }
+    } else {
+      _showSnack("⚠️ Servicio GPS no disponible");
+    }
   }
 
   void _updateLocationFromRawGps(RawGpsData gpsData) {
@@ -370,7 +403,9 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                       StreamBuilder(
                         stream: Stream.periodic(const Duration(seconds: 1)),
                         builder: (context, snapshot) {
-                          final now = DateTime.now();
+                          // Usar hora de Barcelona (Europe/Madrid)
+                          final barcelona = tz.getLocation('Europe/Madrid');
+                          final now = tz.TZDateTime.now(barcelona);
                           return Text(
                             "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
                             style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
@@ -475,7 +510,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   void dispose() {
     _timer?.cancel();
     _gpsStream?.cancel();
-    _rawGpsService.dispose();
+    _rawGpsService?.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
