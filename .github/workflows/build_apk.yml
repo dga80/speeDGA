@@ -1,0 +1,77 @@
+name: Build speeDGA Release APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Compilar y Publicar APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Generar Gradle Wrapper si no existe
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper --gradle-version 8.12
+          fi
+          chmod +x gradlew
+
+      - name: Instalar dependencias de Flutter
+        run: flutter pub get
+
+      - name: Compilar APK de Release para Android
+        run: flutter build apk --release
+
+      - name: Preparar archivo APK
+        run: |
+          mkdir -p release_output
+          cp build/app/outputs/flutter-apk/app-release.apk release_output/speeDGA.apk
+
+      - name: Subir APK como artefacto de GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: speeDGA-release-apk
+          path: release_output/speeDGA.apk
+          retention-days: 30
+
+      - name: Publicar Release en GitHub para descarga directa
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "speeDGA - Ciclocomputador (Última versión)"
+          body: |
+            ## 🚴 speeDGA - Ciclocomputador GPS
+            Nueva versión compilada automáticamente desde la rama `main`.
+            
+            ### ✨ Novedades incluidas:
+            * **Base de datos 100% Local (SQLite):** Nunca se desactiva ni depende de servidores externos.
+            * **Exportación GPX:** Compatible con Strava, Wikiloc y Garmin Connect.
+            * **Telemetría para Bicicleta:** Desnivel acumulado (+D), pausa automática, velocidad media y datos de viento.
+            * **Interfaz adaptable:** Soporte para orientación vertical y horizontal (apaisado) en manillar.
+            
+            ### 📲 Instalación:
+            Descarga el archivo adjunto `speeDGA.apk` directamente en tu móvil e instálalo.
+          files: release_output/speeDGA.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

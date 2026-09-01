@@ -1,12 +1,12 @@
 {
-    "name": "speeDGA",
+    "name": "speeDGA - Ciclocomputador GPS",
     "short_name": "speeDGA",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",
-    "description": "App de telemetría de alta precisión.",
-    "orientation": "portrait-primary",
+    "description": "Ciclocomputador GPS de alta precisión con odómetro, altimetría y telemetría para bicicleta.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
