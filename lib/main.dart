@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -26,8 +27,8 @@ void main() async {
     tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
   }
 
-  // Inicializar la base de datos local SQLite (sin servidores, nunca se desactiva)
-  await DatabaseHelper.instance.database;
+  // Inicializar almacenamiento local (SQLite en móvil, localStorage en Web)
+  await DatabaseHelper.instance.init();
 
   runApp(const SpeeDGAApp());
 }
@@ -93,7 +94,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   int? _weatherCode;
   double? _windSpeed;
   String? _windDirection;
-  bool _weatherError = false;
   DateTime? _lastWeatherUpdate;
 
   @override
@@ -111,34 +111,43 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     }
 
     await _checkPermissions();
-    WakelockPlus.enable();
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
     _loadInitialWeather();
   }
 
   Future<void> _loadInitialWeather() async {
     try {
       Position? position = await Geolocator.getLastKnownPosition();
-      position ??= await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low,
-          timeLimit: Duration(seconds: 10),
-        ),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException('GPS timeout'),
-      );
-
-      await _fetchWeather(position.latitude, position.longitude);
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _weatherError = true;
-        });
+      if (position == null) {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 8),
+          ),
+        );
       }
+      if (position != null) {
+        await _fetchWeather(position.latitude, position.longitude);
+      }
+    } catch (_) {
+      // Si la señal o permisos aún no están concedidos, se reintentará en el stream GPS
     }
   }
 
   Future<void> _checkPermissions() async {
+    if (kIsWeb) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _showSnack('⚠️ Permiso de ubicación bloqueado en el navegador');
+      }
+      return;
+    }
+
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _showDialog(
@@ -244,7 +253,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
           },
         );
       } catch (e) {
-        _showSnack("⚠️ No se pudo iniciar el sensor GPS");
+        _showSnack("⚠️ No se pudo iniciar el sensor GPS: $e");
       }
     } else {
       _showSnack("⚠️ Sensor GPS no disponible");
@@ -293,7 +302,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       if (gpsData.altitude != 0.0) {
         if (_lastAltitude != null) {
           double altDiff = gpsData.altitude - _lastAltitude!;
-          // Umbral de 1.2 metros para ignorar ruido barométrico/GPS
           if (altDiff > 1.2) {
             _elevationGain += altDiff;
             _lastAltitude = gpsData.altitude;
@@ -333,7 +341,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     _lastAltitude = null;
     _isAutoPaused = false;
 
-    // Guardar en la Base de Datos Local SQLite
+    // Guardar en la Base de Datos Local (SQLite en móvil, localStorage en Web)
     try {
       if (_totalDistance > 0.02) {
         final trip = Trip(
@@ -349,12 +357,12 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         );
 
         await DatabaseHelper.instance.insertTrip(trip);
-        _showSnack("✅ Salida guardada en la base de datos local");
+        _showSnack("✅ Salida guardada correctamente");
       } else {
         _showSnack("Trayecto demasiado corto, no se ha guardado.");
       }
     } catch (e) {
-      _showSnack("❌ Error al guardar localmente: $e");
+      _showSnack("❌ Error al guardar: $e");
     }
   }
 
@@ -372,7 +380,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         _windSpeed = data['windspeed'];
         final double windDir = data['winddirection'] ?? 0.0;
         _windDirection = _weatherService.getWindCardinal(windDir);
-        _weatherError = false;
         _lastWeatherUpdate = DateTime.now();
       });
     }
@@ -672,11 +679,8 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
   /// Información meteorológica adaptada a ciclistas (temperatura y viento)
   Widget _buildWeatherInfo() {
-    if (_weatherError) {
-      return const SizedBox.shrink();
-    }
     if (_currentTemp == null) {
-      return const Text("Cargando clima...", style: TextStyle(color: Colors.white30, fontSize: 11));
+      return const SizedBox.shrink();
     }
 
     final weatherIcon = _weatherService.getWeatherIcon(_weatherCode ?? 0);
@@ -705,7 +709,9 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     _timer?.cancel();
     _gpsStream?.cancel();
     _rawGpsService?.dispose();
-    WakelockPlus.disable();
+    try {
+      WakelockPlus.disable();
+    } catch (_) {}
     super.dispose();
   }
 }

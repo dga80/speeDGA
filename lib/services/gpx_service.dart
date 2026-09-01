@@ -1,10 +1,10 @@
-import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/trip.dart';
 
-/// Servicio para generar y compartir archivos estándar GPX 1.1 compatibles con Strava, Garmin y Wikiloc
+/// Servicio multiplataforma (Web y Android) para generar y compartir archivos estándar GPX 1.1
 class GpxService {
   /// Convierte un objeto Trip en una cadena XML GPX 1.1 válida
   static String generateGpx(Trip trip) {
@@ -36,7 +36,6 @@ class GpxService {
       buffer.writeln('        <ele>${point.altitude.toStringAsFixed(1)}</ele>');
       buffer.writeln('        <time>$pointTime</time>');
       buffer.writeln('        <extensions>');
-      // Velocidad en m/s para GPX estándar
       final speedMs = point.speedKmh / 3.6;
       buffer.writeln('          <speed>${speedMs.toStringAsFixed(2)}</speed>');
       buffer.writeln('        </extensions>');
@@ -50,20 +49,22 @@ class GpxService {
     return buffer.toString();
   }
 
-  /// Guarda el GPX en almacenamiento temporal y abre la hoja de compartir nativa
+  /// Comparte el GPX de forma compatible con Web y Móvil sin requerir dart:io
   static Future<void> shareTripGpx(Trip trip) async {
     if (trip.rutaCoordenadas.isEmpty) {
       throw Exception('Este trayecto no contiene puntos de ruta GPS para exportar.');
     }
 
     final gpxContent = generateGpx(trip);
-    final tempDir = await getTemporaryDirectory();
     final fileName = 'speedga_ride_${trip.fechaRegistro.millisecondsSinceEpoch}.gpx';
-    final file = File('${tempDir.path}/$fileName');
+    final bytes = Uint8List.fromList(utf8.encode(gpxContent));
 
-    await file.writeAsString(gpxContent);
+    final xFile = XFile.fromData(
+      bytes,
+      mimeType: 'application/gpx+xml',
+      name: fileName,
+    );
 
-    final xFile = XFile(file.path, mimeType: 'application/gpx+xml');
     await Share.shareXFiles(
       [xFile],
       text: 'Salida en bicicleta speeDGA (${trip.distanciaKm.toStringAsFixed(2)} km, +${trip.desnivelPositivoM.toStringAsFixed(0)} m)',

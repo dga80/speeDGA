@@ -1,14 +1,31 @@
 import 'dart:async';
-import 'package:path/path.dart';
+import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/trip.dart';
 
-/// Gestor Singleton para la base de datos local SQLite de speeDGA
+/// Gestor Singleton híbrido para persistencia de datos:
+/// - En Android/iOS/Desktop: utiliza SQLite local de alto rendimiento (sqflite).
+/// - En Web (Netlify): utiliza localStorage persistente mediante SharedPreferences.
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
+  static const String _webStorageKey = 'speedga_trips_web_data';
+
   DatabaseHelper._init();
+
+  /// Inicializa el motor de almacenamiento adecuado según la plataforma
+  Future<void> init() async {
+    if (kIsWeb) {
+      await SharedPreferences.getInstance();
+    } else {
+      await database;
+    }
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -18,7 +35,7 @@ class DatabaseHelper {
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+    final path = p.join(dbPath, filePath);
 
     return await openDatabase(
       path,
@@ -48,14 +65,22 @@ class DatabaseHelper {
     ''');
   }
 
-  /// Inserta un nuevo trayecto en la base de datos local
+  /// Inserta un nuevo trayecto
   Future<int> insertTrip(Trip trip) async {
+    if (kIsWeb) {
+      return await _insertTripWeb(trip);
+    }
+
     final db = await instance.database;
     return await db.insert('trips', trip.toMap());
   }
 
-  /// Obtiene todos los trayectos ordenados por fecha descendente
+  /// Obtiene todos los trayectos ordenados cronológicamente inverso
   Future<List<Trip>> getTrips() async {
+    if (kIsWeb) {
+      return await _getTripsWeb();
+    }
+
     final db = await instance.database;
     final result = await db.query('trips', orderBy: 'fecha_registro DESC');
     return result.map((map) => Trip.fromMap(map)).toList();
@@ -63,6 +88,15 @@ class DatabaseHelper {
 
   /// Obtiene un trayecto específico por su ID
   Future<Trip?> getTripById(int id) async {
+    if (kIsWeb) {
+      final trips = await _getTripsWeb();
+      try {
+        return trips.firstWhere((t) => t.id == id);
+      } catch (_) {
+        return null;
+      }
+    }
+
     final db = await instance.database;
     final maps = await db.query(
       'trips',
@@ -79,6 +113,10 @@ class DatabaseHelper {
 
   /// Elimina un trayecto por su ID
   Future<int> deleteTrip(int id) async {
+    if (kIsWeb) {
+      return await _deleteTripWeb(id);
+    }
+
     final db = await instance.database;
     return await db.delete(
       'trips',
@@ -89,12 +127,22 @@ class DatabaseHelper {
 
   /// Elimina todos los trayectos
   Future<int> deleteAllTrips() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_webStorageKey);
+      return 1;
+    }
+
     final db = await instance.database;
     return await db.delete('trips');
   }
 
-  /// Obtiene estadísticas acumuladas de la bicicleta
+  /// Obtiene estadísticas acumuladas del ciclista
   Future<Map<String, dynamic>> getGlobalStats() async {
+    if (kIsWeb) {
+      return await _getGlobalStatsWeb();
+    }
+
     final db = await instance.database;
     final result = await db.rawQuery('''
       SELECT 
@@ -126,9 +174,89 @@ class DatabaseHelper {
     };
   }
 
-  /// Cierra la base de datos
+  // =================== Implementación Específica Web ===================
+
+  Future<List<Trip>> _getTripsWeb() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(_webStorageKey);
+    if (jsonStr == null || jsonStr.isEmpty) return [];
+
+    try {
+      final List decoded = jsonDecode(jsonStr);
+      final trips = decoded.map((m) => Trip.fromMap(Map<String, dynamic>.from(m))).toList();
+      trips.sort((a, b) => b.fechaRegistro.compareTo(a.fechaRegistro));
+      return trips;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<int> _insertTripWeb(Trip trip) async {
+    final prefs = await SharedPreferences.getInstance();
+    final trips = await _getTripsWeb();
+    
+    int nextId = 1;
+    if (trips.isNotEmpty) {
+      final maxId = trips.map((t) => t.id ?? 0).reduce(max);
+      nextId = maxId + 1;
+    }
+
+    final newTripMap = trip.toMap();
+    newTripMap['id'] = nextId;
+
+    final updatedMaps = trips.map((t) => t.toMap()).toList();
+    updatedMaps.insert(0, newTripMap);
+
+    await prefs.setString(_webStorageKey, jsonEncode(updatedMaps));
+    return nextId;
+  }
+
+  Future<int> _deleteTripWeb(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final trips = await _getTripsWeb();
+    trips.removeWhere((t) => t.id == id);
+    await prefs.setString(_webStorageKey, jsonEncode(trips.map((t) => t.toMap()).toList()));
+    return 1;
+  }
+
+  Future<Map<String, dynamic>> _getGlobalStatsWeb() async {
+    final trips = await _getTripsWeb();
+    if (trips.isEmpty) {
+      return {
+        'totalSalidas': 0,
+        'totalKm': 0.0,
+        'maxVelocidad': 0.0,
+        'totalDesnivel': 0.0,
+        'totalTiempoSeg': 0,
+      };
+    }
+
+    double totalKm = 0.0;
+    double maxVel = 0.0;
+    double totalDesnivel = 0.0;
+    int totalTiempo = 0;
+
+    for (final t in trips) {
+      totalKm += t.distanciaKm;
+      if (t.velocidadMaxKmh > maxVel) maxVel = t.velocidadMaxKmh;
+      totalDesnivel += t.desnivelPositivoM;
+      totalTiempo += t.tiempoMovimientoSeg;
+    }
+
+    return {
+      'totalSalidas': trips.length,
+      'totalKm': totalKm,
+      'maxVelocidad': maxVel,
+      'totalDesnivel': totalDesnivel,
+      'totalTiempoSeg': totalTiempo,
+    };
+  }
+
   Future<void> close() async {
-    final db = await instance.database;
-    db.close();
+    if (!kIsWeb && _database != null) {
+      final db = await instance.database;
+      db.close();
+      _database = null;
+    }
   }
 }
