@@ -1,34 +1,33 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'history_screen.dart'; // Importar la nueva pantalla
+
+import 'history_screen.dart';
+import 'models/trip.dart';
+import 'raw_gps_service.dart';
+import 'services/database_helper.dart';
 import 'weather_service.dart';
-import 'raw_gps_service.dart'; // Raw GPS access
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Inicializar zona horaria
   tz.initializeTimeZones();
   try {
     final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(currentTimeZone));
   } catch (e) {
-    print('⚠️ Error obteniendo zona horaria: $e');
     // Fallback a Barcelona si falla
     tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
   }
-  
-  await Supabase.initialize(
-    url: 'https://npoekhbuijevesjjbbyx.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wb2VraGJ1aWpldmVzampiYnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0MjMwMjcsImV4cCI6MjA4Mjk5OTAyN30.ZEmWiOdyHrIsv4pPP7eYSdzP2lNAEmpwCPdOPeWnzjU',
-  );
+
+  // Inicializar la base de datos local SQLite (sin servidores, nunca se desactiva)
+  await DatabaseHelper.instance.database;
 
   runApp(const SpeeDGAApp());
 }
@@ -40,10 +39,14 @@ class SpeeDGAApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'speeDGA',
+      title: 'speeDGA - Ciclocomputador',
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF00FF41),
+          surface: Colors.black,
+        ),
       ),
       home: const SpeedometerPage(),
     );
@@ -58,27 +61,38 @@ class SpeedometerPage extends StatefulWidget {
 }
 
 class _SpeedometerPageState extends State<SpeedometerPage> {
-  // --- Variables de Estado ---
+  // --- Métricas de Telemetría Ciclista ---
   double _currentSpeed = 0.0;
   double _maxSpeed = 0.0;
+  double _avgSpeed = 0.0;
   double _totalDistance = 0.0;
+  double _elevationGain = 0.0;
+  double _elevationLoss = 0.0;
+  double? _lastAltitude;
+
   bool _isTracking = false;
-  
+  bool _isAutoPaused = false;
+  int _consecutiveZeroSpeedTicks = 0;
+
   DateTime? _startTime;
-  Duration _duration = Duration.zero;
+  int _totalSeconds = 0;
+  int _movingSeconds = 0;
   Timer? _timer;
+
   double? _lastLatitude;
   double? _lastLongitude;
   StreamSubscription<RawGpsData>? _gpsStream;
-  RawGpsService? _rawGpsService; // Nullable para manejo de errores
-  final List<Map<String, double>> _routePoints = []; // Lista para guardar la ruta
-  int _satelliteCount = 0; // Satellite count from GNSS
+  RawGpsService? _rawGpsService;
+  final List<TripPoint> _routePoints = [];
+  int _satelliteCount = 0;
   bool _gpsServiceInitialized = false;
 
-  // --- Weather State ---
+  // --- Clima Ciclista (Temp & Viento) ---
   final WeatherService _weatherService = WeatherService();
   double? _currentTemp;
   int? _weatherCode;
+  double? _windSpeed;
+  String? _windDirection;
   bool _weatherError = false;
   DateTime? _lastWeatherUpdate;
 
@@ -89,42 +103,33 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   void _initApp() async {
-    // Inicializar servicio GPS con manejo de errores
     try {
       _rawGpsService = RawGpsService();
       _gpsServiceInitialized = true;
     } catch (e) {
-      print('⚠️ Error inicializando RawGpsService: $e');
       _gpsServiceInitialized = false;
     }
-    
+
     await _checkPermissions();
     WakelockPlus.enable();
-    
-    // Cargar clima inicial
     _loadInitialWeather();
   }
 
   Future<void> _loadInitialWeather() async {
     try {
-      // Intentar obtener la última posición conocida primero (más rápido)
       Position? position = await Geolocator.getLastKnownPosition();
-      
-      // Si no hay última posición conocida, obtener posición actual con timeout
       position ??= await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.low, // Baja precisión es suficiente para el clima
+          accuracy: LocationAccuracy.low,
           timeLimit: Duration(seconds: 10),
         ),
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () => throw TimeoutException('GPS timeout'),
       );
-      
+
       await _fetchWeather(position.latitude, position.longitude);
-        } catch (e) {
-      print("⚠️ Error cargando clima inicial: $e");
-      // Establecer estado de error pero no bloquear la app
+    } catch (_) {
       if (mounted) {
         setState(() {
           _weatherError = true;
@@ -134,7 +139,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   Future<void> _checkPermissions() async {
-    // 1. Verificar si los servicios de ubicación están habilitados
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _showDialog(
@@ -144,49 +148,26 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       return;
     }
 
-    // 2. Solicitar permiso de ubicación usando permission_handler
     PermissionStatus status = await Permission.location.status;
-    
     if (status.isDenied) {
-      // Solicitar permiso por primera vez
       status = await Permission.location.request();
     }
-    
-    if (status.isDenied) {
-      // El usuario denegó el permiso
-      _showDialog(
-        '⚠️ Permiso Denegado',
-        'speeDGA necesita acceso a tu ubicación para funcionar. Por favor, concede el permiso cuando se te solicite.',
-      );
-      return;
-    }
-    
+
     if (status.isPermanentlyDenied) {
-      // El usuario denegó permanentemente el permiso
       _showDialog(
         '🔒 Permiso Bloqueado',
-        'Los permisos de ubicación están bloqueados permanentemente. Por favor, ve a los ajustes de Android y activa manualmente el permiso de ubicación para speeDGA.',
+        'Los permisos de ubicación están bloqueados permanentemente. Actívalos en ajustes para poder registrar rutas.',
       );
       return;
     }
-    
-    // 3. Verificar también con Geolocator (doble verificación)
+
     LocationPermission geoPermission = await Geolocator.checkPermission();
     if (geoPermission == LocationPermission.denied) {
       geoPermission = await Geolocator.requestPermission();
     }
-    
-    if (geoPermission == LocationPermission.deniedForever) {
-      _showDialog(
-        '🔒 Permiso Bloqueado',
-        'Los permisos de ubicación están bloqueados. Abre los ajustes de Android y activa el permiso de ubicación para speeDGA.',
-      );
-      return;
-    }
-    
-    // Si llegamos aquí, todo está bien
+
     if (status.isGranted && geoPermission != LocationPermission.denied) {
-      _showSnack('✅ Permisos de ubicación concedidos correctamente');
+      _showSnack('✅ GPS y permisos listos para rodar');
     }
   }
 
@@ -195,14 +176,12 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title, style: const TextStyle(color: Colors.white)),
-        content: Text(content),
+        content: Text(content, style: const TextStyle(color: Colors.white70)),
         backgroundColor: Colors.grey[900],
-        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-        contentTextStyle: const TextStyle(color: Colors.white70),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('OK', style: TextStyle(color: Color(0xFF00FF41))),
           ),
           TextButton(
             onPressed: () => Geolocator.openAppSettings(),
@@ -225,70 +204,123 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   }
 
   void _startNewTrip() {
-    print("🚀 Iniciando nuevo trayecto con RAW GPS...");
     _startTime = DateTime.now();
     _totalDistance = 0.0;
     _maxSpeed = 0.0;
-    _duration = Duration.zero;
-    _routePoints.clear(); // Limpiar la ruta anterior
+    _avgSpeed = 0.0;
+    _elevationGain = 0.0;
+    _elevationLoss = 0.0;
+    _totalSeconds = 0;
+    _movingSeconds = 0;
+    _consecutiveZeroSpeedTicks = 0;
+    _isAutoPaused = false;
+    _lastAltitude = null;
+    _routePoints.clear();
     _lastLatitude = null;
     _lastLongitude = null;
-    
+
+    // Cronómetro de segundo a segundo
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       setState(() {
-        _duration = DateTime.now().difference(_startTime!);
+        _totalSeconds++;
+        if (!_isAutoPaused) {
+          _movingSeconds++;
+          if (_movingSeconds > 2 && _totalDistance > 0.01) {
+            _avgSpeed = _totalDistance / (_movingSeconds / 3600);
+          }
+        }
       });
     });
 
-    // Use RAW GPS service instead of geolocator
     if (_gpsServiceInitialized && _rawGpsService != null) {
       try {
         _gpsStream = _rawGpsService!.locationStream.listen(
           (gpsData) {
-            print("📍 RAW GPS: lat=${gpsData.latitude.toStringAsFixed(4)}, lon=${gpsData.longitude.toStringAsFixed(4)}, speed=${gpsData.speed.toStringAsFixed(2)} m/s, sats=${gpsData.satelliteCount}");
             _updateLocationFromRawGps(gpsData);
           },
           onError: (e) {
-            print("❌ Error en RAW GPS stream: $e");
             _showSnack("⚠️ Error de GPS: $e");
           },
         );
       } catch (e) {
-        print("❌ Error iniciando stream GPS: $e");
-        _showSnack("⚠️ No se pudo iniciar el GPS");
+        _showSnack("⚠️ No se pudo iniciar el sensor GPS");
       }
     } else {
-      _showSnack("⚠️ Servicio GPS no disponible");
+      _showSnack("⚠️ Sensor GPS no disponible");
     }
   }
 
   void _updateLocationFromRawGps(RawGpsData gpsData) {
-    setState(() {
-      // Use RAW speed directly from GPS sensor (no filtering!)
-      _currentSpeed = gpsData.speedKmh;
-      
-      // Filter out very low speeds (GPS noise when stationary)
-      if (_currentSpeed < 1.0) _currentSpeed = 0.0;
-      
-      // Update max speed
-      if (_currentSpeed > _maxSpeed) _maxSpeed = _currentSpeed;
+    if (!mounted) return;
 
-      // Calculate distance
-      if (_lastLatitude != null && _lastLongitude != null) {
-        double distance = Geolocator.distanceBetween(
-          _lastLatitude!, _lastLongitude!,
-          gpsData.latitude, gpsData.longitude
-        );
-        _totalDistance += distance / 1000;
+    setState(() {
+      _currentSpeed = gpsData.speedKmh;
+
+      // Auto-pausa ciclista: umbral de 1.8 km/h para distinguir pedaleo lento de paradas
+      if (_currentSpeed < 1.8) {
+        _consecutiveZeroSpeedTicks++;
+        if (_consecutiveZeroSpeedTicks >= 3) {
+          _isAutoPaused = true;
+          _currentSpeed = 0.0;
+        }
+      } else {
+        _consecutiveZeroSpeedTicks = 0;
+        _isAutoPaused = false;
       }
-      
+
+      // Actualizar velocidad punta
+      if (_currentSpeed > _maxSpeed) {
+        _maxSpeed = _currentSpeed;
+      }
+
+      // Acumular distancia solo si nos estamos moviendo (filtro de ruido en parado)
+      if (!_isAutoPaused && _lastLatitude != null && _lastLongitude != null) {
+        double distanceMeters = Geolocator.distanceBetween(
+          _lastLatitude!,
+          _lastLongitude!,
+          gpsData.latitude,
+          gpsData.longitude,
+        );
+
+        // Filtrar saltos irreales de GPS (> 50 m en 1 segundo en bici = 180 km/h)
+        if (distanceMeters > 0.5 && distanceMeters < 50.0) {
+          _totalDistance += distanceMeters / 1000.0;
+        }
+      }
+
+      // Cálculo de altimetría y desnivel acumulado (+D / -D) con filtro de histéresis
+      if (gpsData.altitude != 0.0) {
+        if (_lastAltitude != null) {
+          double altDiff = gpsData.altitude - _lastAltitude!;
+          // Umbral de 1.2 metros para ignorar ruido barométrico/GPS
+          if (altDiff > 1.2) {
+            _elevationGain += altDiff;
+            _lastAltitude = gpsData.altitude;
+          } else if (altDiff < -1.2) {
+            _elevationLoss += altDiff.abs();
+            _lastAltitude = gpsData.altitude;
+          }
+        } else {
+          _lastAltitude = gpsData.altitude;
+        }
+      }
+
       _lastLatitude = gpsData.latitude;
       _lastLongitude = gpsData.longitude;
       _satelliteCount = gpsData.satelliteCount;
-      _routePoints.add({'lat': gpsData.latitude, 'lng': gpsData.longitude});
+
+      // Guardar punto de ruta
+      _routePoints.add(TripPoint(
+        latitude: gpsData.latitude,
+        longitude: gpsData.longitude,
+        altitude: gpsData.altitude,
+        speedKmh: gpsData.speedKmh,
+        timestamp: DateTime.now(),
+      ));
     });
 
-    // Intentar actualizar clima
+    // Actualizar clima solo periódicamente
     _fetchWeather(gpsData.latitude, gpsData.longitude);
   }
 
@@ -298,172 +330,338 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     _currentSpeed = 0.0;
     _lastLatitude = null;
     _lastLongitude = null;
+    _lastAltitude = null;
+    _isAutoPaused = false;
 
-    // Guardar en Supabase
+    // Guardar en la Base de Datos Local SQLite
     try {
-      if (_totalDistance > 0.01) { // Solo guardar si hay movimiento
-        await Supabase.instance.client.from('registros_velocidad').insert({
-          'fecha_registro': DateTime.now().toIso8601String(),
-          'distancia_recorrida_km': _totalDistance,
-          'velocidad_maxima_kmh': _maxSpeed,
-          'tiempo_total_segundos': _duration.inSeconds,
-          'ruta_coordenadas': _routePoints // Guardar la ruta
-        });
-        _showSnack("Trayecto guardado en speeDGA");
+      if (_totalDistance > 0.02) {
+        final trip = Trip(
+          fechaRegistro: _startTime ?? DateTime.now(),
+          distanciaKm: _totalDistance,
+          velocidadMaxKmh: _maxSpeed,
+          velocidadMediaKmh: _avgSpeed,
+          tiempoTotalSeg: _totalSeconds,
+          tiempoMovimientoSeg: _movingSeconds > 0 ? _movingSeconds : _totalSeconds,
+          desnivelPositivoM: _elevationGain,
+          desnivelNegativoM: _elevationLoss,
+          rutaCoordenadas: List.from(_routePoints),
+        );
+
+        await DatabaseHelper.instance.insertTrip(trip);
+        _showSnack("✅ Salida guardada en la base de datos local");
       } else {
         _showSnack("Trayecto demasiado corto, no se ha guardado.");
       }
     } catch (e) {
-      _showSnack("Error al guardar: ${e.toString()}");
+      _showSnack("❌ Error al guardar localmente: $e");
     }
   }
 
   Future<void> _fetchWeather(double lat, double lon) async {
-    // Actualizar solo cada 15 minutos o si no hay datos
-    if (_lastWeatherUpdate != null && DateTime.now().difference(_lastWeatherUpdate!).inMinutes < 15) return;
+    if (_lastWeatherUpdate != null &&
+        DateTime.now().difference(_lastWeatherUpdate!).inMinutes < 15) {
+      return;
+    }
 
     final data = await _weatherService.getWeather(lat, lon);
-    if (mounted) {
-      if (data.isNotEmpty) {
-        setState(() {
-          _currentTemp = data['temperature'];
-          _weatherCode = data['weathercode'];
-          _weatherError = false;
-          _lastWeatherUpdate = DateTime.now();
-        });
-      } else {
-        setState(() {
-          _weatherError = true;
-        });
-      }
+    if (mounted && data.isNotEmpty) {
+      setState(() {
+        _currentTemp = data['temperature'];
+        _weatherCode = data['weathercode'];
+        _windSpeed = data['windspeed'];
+        final double windDir = data['winddirection'] ?? 0.0;
+        _windDirection = _weatherService.getWindCardinal(windDir);
+        _weatherError = false;
+        _lastWeatherUpdate = DateTime.now();
+      });
     }
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Colors.grey[900],
+      duration: const Duration(seconds: 2),
+    ));
   }
-  
+
   void _navigateToHistory() {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const HistoryScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            // Superior: Hora y Botón de Historial
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Botón de Historial y Satélites
-                  Row(
+        child: isLandscape ? _buildLandscapeLayout() : _buildPortraitLayout(),
+      ),
+    );
+  }
+
+  /// Diseño Vertical para soporte de manillar estándar
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        _buildHeader(),
+        if (_isTracking && _isAutoPaused) _buildAutoPauseBanner(),
+        const Spacer(),
+        _buildSpeedometerDisplay(),
+        const Spacer(),
+        _buildCyclingStatsCard(),
+        _buildActionButton(),
+      ],
+    );
+  }
+
+  /// Diseño Horizontal para soporte de manillar apaisado
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        // Lado izquierdo: Velocímetro gigante
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              _buildHeader(),
+              if (_isTracking && _isAutoPaused) _buildAutoPauseBanner(),
+              const Spacer(),
+              _buildSpeedometerDisplay(),
+              const Spacer(),
+            ],
+          ),
+        ),
+        // Lado derecho: Métricas ciclistas y botón
+        Expanded(
+          flex: 4,
+          child: Column(
+            children: [
+              Expanded(child: Center(child: _buildCyclingStatsCard())),
+              _buildActionButton(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Cabecera superior con reloj, satélites y clima ciclista (temp + viento)
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Historial y Satélites
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.history, color: Colors.white70, size: 28),
+                onPressed: _navigateToHistory,
+                tooltip: 'Historial de Rutas',
+              ),
+              if (_isTracking)
+                Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _satelliteCount >= 4
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.history, color: Colors.white70, size: 30),
-                        onPressed: _navigateToHistory, 
-                        tooltip: 'Historial de Trayectos'
+                      Icon(
+                        Icons.satellite_alt,
+                        size: 14,
+                        color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
                       ),
-                      if (_isTracking && _satelliteCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _satelliteCount >= 4 ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.satellite_alt,
-                                size: 16,
-                                color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$_satelliteCount',
-                                style: TextStyle(
-                                  color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_satelliteCount',
+                        style: TextStyle(
+                          color: _satelliteCount >= 4 ? Colors.green : Colors.orange,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                         ),
-                    ],
-                  ),
-                  // Hora Actual y Clima
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _buildWeatherInfo(),
-                      StreamBuilder(
-                        stream: Stream.periodic(const Duration(seconds: 1)),
-                        builder: (context, snapshot) {
-                          // Usar hora de Barcelona (Europe/Madrid)
-                          final barcelona = tz.getLocation('Europe/Madrid');
-                          final now = tz.TZDateTime.now(barcelona);
-                          return Text(
-                            "${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}",
-                            style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
-                          );
-                        },
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            
-            const Spacer(),
+                ),
+            ],
+          ),
 
-            // Velocímetro
+          // Clima ciclista y Hora
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildWeatherInfo(),
+              StreamBuilder(
+                stream: Stream.periodic(const Duration(seconds: 1)),
+                builder: (context, snapshot) {
+                  final now = tz.TZDateTime.now(tz.local);
+                  return Text(
+                    "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Banner indicador de Pausa Automática
+  Widget _buildAutoPauseBanner() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.amberAccent.withOpacity(0.6)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.pause_circle_filled, color: Colors.amberAccent, size: 16),
+          SizedBox(width: 6),
+          Text(
+            'AUTO-PAUSA (DETENIDO)',
+            style: TextStyle(
+              color: Colors.amberAccent,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Pantalla central con la velocidad actual en números grandes para visibilidad solar
+  Widget _buildSpeedometerDisplay() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _currentSpeed.toStringAsFixed(0),
+          style: const TextStyle(
+            fontSize: 140,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF00FF41),
+            letterSpacing: -5,
+            height: 1.0,
+          ),
+        ),
+        const Text(
+          "KM/H",
+          style: TextStyle(
+            fontSize: 20,
+            color: Colors.white38,
+            letterSpacing: 4,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Cuadrícula con las 4 métricas ciclistas vitales
+  Widget _buildCyclingStatsCard() {
+    final movingDuration = Duration(seconds: _movingSeconds);
+    final formattedTime =
+        "${movingDuration.inMinutes.remainder(60).toString().padLeft(2, '0')}:${movingDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}";
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStat("DISTANCIA", "${_totalDistance.toStringAsFixed(2)} km"),
+          _buildStat("TIEMPO", formattedTime),
+          _buildStat("MEDIA", "${_avgSpeed.toStringAsFixed(1)} km/h"),
+          _buildStat("DESNIVEL", "+${_elevationGain.toStringAsFixed(0)} m"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStat(String label, String value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.white38,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Botón ergonómico de gran tamaño apto para guantes de ciclista
+  Widget _buildActionButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      child: ElevatedButton(
+        onPressed: _toggleTracking,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _isTracking ? Colors.redAccent : const Color(0xFF00FF41),
+          foregroundColor: Colors.black,
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          elevation: 4,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _isTracking ? Icons.stop_circle : Icons.pedal_bike,
+              size: 26,
+              color: Colors.black,
+            ),
+            const SizedBox(width: 10),
             Text(
-              _currentSpeed.toStringAsFixed(0),
+              _isTracking ? "DETENER TRAYECTO" : "INICIAR speeDGA",
               style: const TextStyle(
-                fontSize: 180, fontWeight: FontWeight.w900,
-                color: Color(0xFF00FF41), letterSpacing: -5,
-              ),
-            ),
-            const Text("KM/H", style: TextStyle(fontSize: 24, color: Colors.white38, letterSpacing: 4)),
-
-            const Spacer(),
-
-            // Estadísticas
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 30),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStat("DISTANCIA", "${_totalDistance.toStringAsFixed(2)} km"),
-                  _buildStat("TIEMPO", _formatDuration(_duration)),
-                  _buildStat("MÁXIMA", _maxSpeed.toStringAsFixed(1)),
-                ],
-              ),
-            ),
-
-            // Botón de Acción
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              child: ElevatedButton(
-                onPressed: _toggleTracking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isTracking ? Colors.redAccent : const Color(0xFF00FF41),
-                  padding: const EdgeInsets.all(20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                child: Text(
-                  _isTracking ? "DETENER TRAYECTO" : "INICIAR speeDGA",
-                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
-                ),
+                color: Colors.black,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                letterSpacing: 0.5,
               ),
             ),
           ],
@@ -472,38 +670,34 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
+  /// Información meteorológica adaptada a ciclistas (temperatura y viento)
   Widget _buildWeatherInfo() {
     if (_weatherError) {
-       return Row(children: [const Text("⚠️", style: TextStyle(fontSize: 24)), const SizedBox(width: 8), const Text("Error Clima", style: TextStyle(color: Colors.redAccent))]);
+      return const SizedBox.shrink();
     }
-    if (_currentTemp == null || _weatherCode == null) return const Text("Cargando...", style: TextStyle(color: Colors.white38));
+    if (_currentTemp == null) {
+      return const Text("Cargando clima...", style: TextStyle(color: Colors.white30, fontSize: 11));
+    }
+
+    final weatherIcon = _weatherService.getWeatherIcon(_weatherCode ?? 0);
+    final windInfo = _windSpeed != null && _windDirection != null
+        ? " 💨 ${_windSpeed!.toStringAsFixed(0)} km/h $_windDirection"
+        : "";
+
     return Row(
       children: [
+        Text(weatherIcon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(width: 4),
         Text(
-          _weatherService.getWeatherIcon(_weatherCode!),
-          style: const TextStyle(fontSize: 24),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          "${_currentTemp!.toStringAsFixed(1)}°C",
-          style: const TextStyle(fontSize: 22, color: Colors.white70, fontWeight: FontWeight.w300),
+          "${_currentTemp!.toStringAsFixed(0)}°C$windInfo",
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.white70,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
-  }
-
-  Widget _buildStat(String label, String value) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white38)),
-        const SizedBox(height: 5),
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-      ],
-    );
-  }
-
-  String _formatDuration(Duration d) {
-    return "${d.inMinutes.remainder(60).toString().padLeft(2, '0')}:${d.inSeconds.remainder(60).toString().padLeft(2, '0')}";
   }
 
   @override

@@ -14,8 +14,13 @@ dependencies:
   # Iconos estándar
   cupertino_icons: ^1.0.8
 
-  # Conexión con la base de datos en la nube
-  supabase_flutter: ^2.8.1
+  # Base de datos local SQLite (alojada en el dispositivo, nunca se desactiva)
+  sqflite: ^2.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # Compartir y exportar archivos GPX (Strava / Wikiloc / Garmin)
+  share_plus: ^10.1.4
 
   # Acceso al GPS del móvil
   geolocator: ^13.0.1
@@ -41,4 +46,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Si en el futuro añades imágenes o fuentes personalizadas, irán aquí debajo.
+  assets:
+    - assets/database/
