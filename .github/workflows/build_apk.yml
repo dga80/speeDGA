@@ -41,7 +41,17 @@ jobs:
         run: flutter pub get
 
       - name: Compilar APK de Release para Android
-        run: flutter build apk --release
+        run: |
+          set +e
+          flutter build apk --release > build_output.log 2>&1
+          STATUS=$?
+          if [ $STATUS -ne 0 ]; then
+            echo "::error title=Flutter Build Error::$(tail -n 15 build_output.log | tr '\n' ' ')"
+            while IFS= read -r line; do
+              echo "::notice::$line"
+            done < <(tail -n 35 build_output.log)
+            exit $STATUS
+          fi
 
       - name: Preparar archivo APK
         run: |
