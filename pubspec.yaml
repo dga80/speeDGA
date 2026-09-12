@@ -35,9 +35,7 @@ dependencies:
   permission_handler: ^11.3.1
   http: ^1.2.0
   
-  # Zona horaria para mostrar hora de Barcelona
-  timezone: ^0.9.4
-  flutter_timezone: ^2.0.0
+
 
 dev_dependencies:
   flutter_test:

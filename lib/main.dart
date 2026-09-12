@@ -4,10 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter_timezone/flutter_timezone.dart';
-
 import 'history_screen.dart';
 import 'models/trip.dart';
 import 'raw_gps_service.dart';
@@ -16,16 +12,6 @@ import 'weather_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializar zona horaria
-  tz.initializeTimeZones();
-  try {
-    final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(currentTimeZone));
-  } catch (e) {
-    // Fallback a Barcelona si falla
-    tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
-  }
 
   // Inicializar almacenamiento local (SQLite en móvil, localStorage en Web)
   await DatabaseHelper.instance.init();
@@ -526,7 +512,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               StreamBuilder(
                 stream: Stream.periodic(const Duration(seconds: 1)),
                 builder: (context, snapshot) {
-                  final now = tz.TZDateTime.now(tz.local);
+                  final now = DateTime.now();
                   return Text(
                     "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
                     style: const TextStyle(
