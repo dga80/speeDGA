@@ -32,6 +32,11 @@ jobs:
       - name: Asegurar permisos de ejecución en Gradle Wrapper
         run: chmod +x android/gradlew
 
+      - name: Configurar android/local.properties
+        run: |
+          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+
       - name: Instalar dependencias de Flutter
         run: flutter pub get
 
