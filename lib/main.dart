@@ -201,15 +201,29 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
-  void _toggleTracking() {
-    setState(() {
-      _isTracking = !_isTracking;
-      if (_isTracking) {
-        _startNewTrip();
-      } else {
-        _stopTrip();
+  void _toggleTracking() async {
+    if (!_isTracking) {
+      // En Web, asegurar permisos de ubicación antes de iniciar
+      if (kIsWeb) {
+        LocationPermission perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
+        if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+          _showSnack("⚠️ Concede permiso de ubicación en el navegador para usar el velocímetro");
+          return;
+        }
       }
-    });
+      setState(() {
+        _isTracking = true;
+      });
+      _startNewTrip();
+    } else {
+      setState(() {
+        _isTracking = false;
+      });
+      _stopTrip();
+    }
   }
 
   void _startNewTrip() {

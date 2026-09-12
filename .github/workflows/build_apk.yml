@@ -29,13 +29,8 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generar Gradle Wrapper si no existe
-        run: |
-          cd android
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.12
-          fi
-          chmod +x gradlew
+      - name: Asegurar permisos de ejecución en Gradle Wrapper
+        run: chmod +x android/gradlew
 
       - name: Instalar dependencias de Flutter
         run: flutter pub get

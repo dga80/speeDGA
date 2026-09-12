@@ -58,6 +58,11 @@ class RawGpsService {
   int _currentSatelliteCount = 0;
   int get satelliteCount => _currentSatelliteCount;
 
+  // Variables para cálculo de velocidad en Web si coords.speed viene a cero o null del navegador
+  double? _lastWebLat;
+  double? _lastWebLng;
+  int? _lastWebTime;
+
   Stream<RawGpsData> get locationStream {
     if (_locationStream != null) {
       return _locationStream!;
@@ -109,7 +114,7 @@ class RawGpsService {
   /// Conmutación automática al motor de Geolocalización estándar
   void _startGeolocatorFallback(String source) {
     const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
+      accuracy: LocationAccuracy.best,
       distanceFilter: 0,
     );
 
@@ -118,7 +123,31 @@ class RawGpsService {
       locationSettings: locationSettings,
     ).listen(
       (Position position) {
-        final speedMs = position.speed < 0 ? 0.0 : position.speed;
+        double speedMs = position.speed < 0 ? 0.0 : position.speed;
+        final nowMs = position.timestamp?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
+
+        // Si el navegador web devuelve velocidad 0 (muy común en HTML5 Geolocation),
+        // calcular la velocidad a partir de la distancia recorrida y el tiempo transcurrido
+        if (speedMs == 0.0 && _lastWebLat != null && _lastWebLng != null && _lastWebTime != null) {
+          final timeDiffSec = (nowMs - _lastWebTime!) / 1000.0;
+          if (timeDiffSec > 0.4 && timeDiffSec < 10.0) {
+            final distMeters = Geolocator.distanceBetween(
+              _lastWebLat!,
+              _lastWebLng!,
+              position.latitude,
+              position.longitude,
+            );
+            // Ignorar micropasos si son puro ruido de precisión
+            if (distMeters > 0.8) {
+              speedMs = distMeters / timeDiffSec;
+            }
+          }
+        }
+
+        _lastWebLat = position.latitude;
+        _lastWebLng = position.longitude;
+        _lastWebTime = nowMs;
+
         _currentSatelliteCount = 8; // Indicador representativo para web/geolocator
         
         final gpsData = RawGpsData(
@@ -128,7 +157,7 @@ class RawGpsService {
           accuracy: position.accuracy,
           altitude: position.altitude,
           bearing: position.heading,
-          timestamp: position.timestamp.millisecondsSinceEpoch,
+          timestamp: nowMs,
           satelliteCount: _currentSatelliteCount,
           provider: source,
         );
@@ -148,6 +177,10 @@ class RawGpsService {
 
       await _geolocatorSubscription?.cancel();
       _geolocatorSubscription = null;
+
+      _lastWebLat = null;
+      _lastWebLng = null;
+      _lastWebTime = null;
 
       if (!kIsWeb) {
         await _methodChannel.invokeMethod('stopLocationUpdates');
