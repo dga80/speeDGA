@@ -59,7 +59,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
   bool _isTracking = false;
   bool _isAutoPaused = false;
-  int _consecutiveZeroSpeedTicks = 0;
 
   DateTime? _startTime;
   int _totalSeconds = 0;
@@ -97,6 +96,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     }
 
     await _checkPermissions();
+    _startGpsStream();
     try {
       await WakelockPlus.enable();
     } catch (_) {}
@@ -212,36 +212,8 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     }
   }
 
-  void _startNewTrip() {
-    _startTime = DateTime.now();
-    _totalDistance = 0.0;
-    _maxSpeed = 0.0;
-    _avgSpeed = 0.0;
-    _elevationGain = 0.0;
-    _elevationLoss = 0.0;
-    _totalSeconds = 0;
-    _movingSeconds = 0;
-    _consecutiveZeroSpeedTicks = 0;
-    _isAutoPaused = false;
-    _lastAltitude = null;
-    _routePoints.clear();
-    _lastLatitude = null;
-    _lastLongitude = null;
-
-    // Cronómetro de segundo a segundo
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _totalSeconds++;
-        if (!_isAutoPaused) {
-          _movingSeconds++;
-          if (_movingSeconds > 2 && _totalDistance > 0.01) {
-            _avgSpeed = _totalDistance / (_movingSeconds / 3600);
-          }
-        }
-      });
-    });
-
+  void _startGpsStream() {
+    if (_gpsStream != null) return;
     if (_gpsServiceInitialized && _rawGpsService != null) {
       try {
         _gpsStream = _rawGpsService!.locationStream.listen(
@@ -260,86 +232,116 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     }
   }
 
+  void _startNewTrip() {
+    _startTime = DateTime.now();
+    _totalDistance = 0.0;
+    _maxSpeed = 0.0;
+    _avgSpeed = 0.0;
+    _elevationGain = 0.0;
+    _elevationLoss = 0.0;
+    _totalSeconds = 0;
+    _movingSeconds = 0;
+    _isAutoPaused = false;
+    _lastAltitude = null;
+    _routePoints.clear();
+    _lastLatitude = null;
+    _lastLongitude = null;
+
+    _startGpsStream();
+
+    // Cronómetro de segundo a segundo
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _totalSeconds++;
+        if (!_isAutoPaused) {
+          _movingSeconds++;
+          if (_movingSeconds > 2 && _totalDistance > 0.01) {
+            _avgSpeed = _totalDistance / (_movingSeconds / 3600);
+          }
+        }
+      });
+    });
+  }
+
   void _updateLocationFromRawGps(RawGpsData gpsData) {
     if (!mounted) return;
 
     setState(() {
-      _currentSpeed = gpsData.speedKmh;
+      // 1. Velocidad directa del sensor GPS (con filtro de reposo estándar < 0.8 km/h)
+      double speed = gpsData.speedKmh;
+      if (speed < 0.8) {
+        speed = 0.0;
+      }
 
-      // Auto-pausa ciclista: umbral de 1.8 km/h para distinguir pedaleo lento de paradas
-      if (_currentSpeed < 1.8) {
-        _consecutiveZeroSpeedTicks++;
-        if (_consecutiveZeroSpeedTicks >= 3) {
-          _isAutoPaused = true;
-          _currentSpeed = 0.0;
+      _currentSpeed = speed;
+      _satelliteCount = gpsData.satelliteCount;
+
+      // 2. Si estamos grabando una salida en curso, calcular métricas de ruta
+      if (_isTracking) {
+        // Indicador de auto-pausa (solo para visualización y temporizador de pedaleo)
+        _isAutoPaused = (_currentSpeed < 1.0);
+
+        // Actualizar velocidad máxima registrada
+        if (_currentSpeed > _maxSpeed) {
+          _maxSpeed = _currentSpeed;
         }
-      } else {
-        _consecutiveZeroSpeedTicks = 0;
-        _isAutoPaused = false;
-      }
 
-      // Actualizar velocidad punta
-      if (_currentSpeed > _maxSpeed) {
-        _maxSpeed = _currentSpeed;
-      }
+        // Acumular distancia real recorrida
+        if (_lastLatitude != null && _lastLongitude != null) {
+          double distanceMeters = Geolocator.distanceBetween(
+            _lastLatitude!,
+            _lastLongitude!,
+            gpsData.latitude,
+            gpsData.longitude,
+          );
 
-      // Acumular distancia solo si nos estamos moviendo (filtro de ruido en parado)
-      if (!_isAutoPaused && _lastLatitude != null && _lastLongitude != null) {
-        double distanceMeters = Geolocator.distanceBetween(
-          _lastLatitude!,
-          _lastLongitude!,
-          gpsData.latitude,
-          gpsData.longitude,
-        );
-
-        // Filtrar saltos irreales de GPS (> 50 m en 1 segundo en bici = 180 km/h)
-        if (distanceMeters > 0.5 && distanceMeters < 50.0) {
-          _totalDistance += distanceMeters / 1000.0;
+          // Filtro para eliminar micropasos en parado (< 0.6 m) y saltos cuánticos (> 100 m/s)
+          if (distanceMeters > 0.6 && distanceMeters < 100.0) {
+            _totalDistance += distanceMeters / 1000.0;
+          }
         }
-      }
 
-      // Cálculo de altimetría y desnivel acumulado (+D / -D) con filtro de histéresis
-      if (gpsData.altitude != 0.0) {
-        if (_lastAltitude != null) {
-          double altDiff = gpsData.altitude - _lastAltitude!;
-          if (altDiff > 1.2) {
-            _elevationGain += altDiff;
-            _lastAltitude = gpsData.altitude;
-          } else if (altDiff < -1.2) {
-            _elevationLoss += altDiff.abs();
+        // Cálculo de altimetría y desnivel acumulado (+D / -D) con histéresis
+        if (gpsData.altitude != 0.0) {
+          if (_lastAltitude != null) {
+            double altDiff = gpsData.altitude - _lastAltitude!;
+            if (altDiff > 1.2) {
+              _elevationGain += altDiff;
+              _lastAltitude = gpsData.altitude;
+            } else if (altDiff < -1.2) {
+              _elevationLoss += altDiff.abs();
+              _lastAltitude = gpsData.altitude;
+            }
+          } else {
             _lastAltitude = gpsData.altitude;
           }
-        } else {
-          _lastAltitude = gpsData.altitude;
         }
+
+        // Guardar punto de ruta para trazado GPX y visor de mapa
+        _routePoints.add(TripPoint(
+          latitude: gpsData.latitude,
+          longitude: gpsData.longitude,
+          altitude: gpsData.altitude,
+          speedKmh: _currentSpeed,
+          timestamp: DateTime.now(),
+        ));
       }
 
       _lastLatitude = gpsData.latitude;
       _lastLongitude = gpsData.longitude;
-      _satelliteCount = gpsData.satelliteCount;
-
-      // Guardar punto de ruta
-      _routePoints.add(TripPoint(
-        latitude: gpsData.latitude,
-        longitude: gpsData.longitude,
-        altitude: gpsData.altitude,
-        speedKmh: gpsData.speedKmh,
-        timestamp: DateTime.now(),
-      ));
     });
 
-    // Actualizar clima solo periódicamente
+    // Actualizar clima periódicamente
     _fetchWeather(gpsData.latitude, gpsData.longitude);
   }
 
   void _stopTrip() async {
     _timer?.cancel();
-    _gpsStream?.cancel();
-    _currentSpeed = 0.0;
+    _isAutoPaused = false;
     _lastLatitude = null;
     _lastLongitude = null;
     _lastAltitude = null;
-    _isAutoPaused = false;
 
     // Guardar en la Base de Datos Local (SQLite en móvil, localStorage en Web)
     try {

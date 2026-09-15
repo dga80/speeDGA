@@ -58,10 +58,13 @@ class RawGpsService {
   int _currentSatelliteCount = 0;
   int get satelliteCount => _currentSatelliteCount;
 
-  // Variables para cálculo de velocidad en Web si coords.speed viene a cero o null del navegador
-  double? _lastWebLat;
-  double? _lastWebLng;
-  int? _lastWebTime;
+  Timer? _nativeWatchdogTimer;
+  bool _receivedNativeFix = false;
+
+  // Variables para cálculo de velocidad si el sensor o navegador devuelve 0.0
+  double? _lastLat;
+  double? _lastLng;
+  int? _lastTimeMs;
 
   Stream<RawGpsData> get locationStream {
     if (_locationStream != null) {
@@ -84,29 +87,76 @@ class RawGpsService {
       return;
     }
 
+    _receivedNativeFix = false;
+
     // En Android nativo, intentar usar el plugin de bajo nivel RawGpsPlugin
     try {
       await _methodChannel.invokeMethod('startLocationUpdates');
+
+      // Watchdog: si en 2.5 segundos el GPS nativo no ha emitido ninguna posición
+      // (por ejemplo en interiores o mientras adquiere satélites), arrancar Geolocator en paralelo
+      _nativeWatchdogTimer?.cancel();
+      _nativeWatchdogTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (!_receivedNativeFix) {
+          _startGeolocatorFallback('native_watchdog_fallback');
+        }
+      });
 
       _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
         (dynamic event) {
           if (event is Map) {
             if (event.containsKey('latitude')) {
-              final gpsData = RawGpsData.fromMap(event);
-              _currentSatelliteCount = gpsData.satelliteCount;
-              _locationController?.add(gpsData);
+              _receivedNativeFix = true;
+              _nativeWatchdogTimer?.cancel();
+              // Si ya había fallback de Geolocator activo, cancelarlo para dar prioridad al GPS nativo
+              if (_geolocatorSubscription != null) {
+                _geolocatorSubscription?.cancel();
+                _geolocatorSubscription = null;
+              }
+
+              final rawData = RawGpsData.fromMap(event);
+              _currentSatelliteCount = rawData.satelliteCount;
+
+              // Asegurar cálculo de velocidad si el sensor entrega 0.0 en movimiento
+              double speed = rawData.speed;
+              final nowMs = rawData.timestamp;
+              if (speed <= 0.0 && _lastLat != null && _lastLng != null && _lastTimeMs != null) {
+                final dt = (nowMs - _lastTimeMs!) / 1000.0;
+                if (dt > 0.3 && dt < 10.0) {
+                  final d = Geolocator.distanceBetween(_lastLat!, _lastLng!, rawData.latitude, rawData.longitude);
+                  if (d > 0.6) {
+                    speed = d / dt;
+                  }
+                }
+              }
+
+              _lastLat = rawData.latitude;
+              _lastLng = rawData.longitude;
+              _lastTimeMs = nowMs;
+
+              final correctedData = RawGpsData(
+                latitude: rawData.latitude,
+                longitude: rawData.longitude,
+                speed: speed,
+                accuracy: rawData.accuracy,
+                altitude: rawData.altitude,
+                bearing: rawData.bearing,
+                timestamp: rawData.timestamp,
+                satelliteCount: rawData.satelliteCount,
+                provider: rawData.provider,
+              );
+
+              _locationController?.add(correctedData);
             } else if (event['event'] == 'gnss_status') {
               _currentSatelliteCount = event['satelliteCount'] as int;
             }
           }
         },
         onError: (error) {
-          // Si el canal nativo falla, conmutar transparentemente a Geolocator
           _startGeolocatorFallback('native_stream_error');
         },
       );
     } catch (e) {
-      // Si el plugin nativo no existe (MissingPluginException), conmutar a Geolocator
       _startGeolocatorFallback('native_unsupported');
     }
   }
@@ -114,7 +164,7 @@ class RawGpsService {
   /// Conmutación automática al motor de Geolocalización estándar
   void _startGeolocatorFallback(String source) {
     const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.best,
+      accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 0,
     );
 
@@ -126,30 +176,30 @@ class RawGpsService {
         double speedMs = position.speed < 0 ? 0.0 : position.speed;
         final nowMs = position.timestamp?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
 
-        // Si el navegador web devuelve velocidad 0 (muy común en HTML5 Geolocation),
-        // calcular la velocidad a partir de la distancia recorrida y el tiempo transcurrido
-        if (speedMs == 0.0 && _lastWebLat != null && _lastWebLng != null && _lastWebTime != null) {
-          final timeDiffSec = (nowMs - _lastWebTime!) / 1000.0;
-          if (timeDiffSec > 0.4 && timeDiffSec < 10.0) {
+        // Calcular velocidad por distancia recorrida si el sensor devuelve 0.0
+        if (speedMs <= 0.0 && _lastLat != null && _lastLng != null && _lastTimeMs != null) {
+          final timeDiffSec = (nowMs - _lastTimeMs!) / 1000.0;
+          if (timeDiffSec > 0.3 && timeDiffSec < 10.0) {
             final distMeters = Geolocator.distanceBetween(
-              _lastWebLat!,
-              _lastWebLng!,
+              _lastLat!,
+              _lastLng!,
               position.latitude,
               position.longitude,
             );
-            // Ignorar micropasos si son puro ruido de precisión
-            if (distMeters > 0.8) {
+            if (distMeters > 0.6) {
               speedMs = distMeters / timeDiffSec;
             }
           }
         }
 
-        _lastWebLat = position.latitude;
-        _lastWebLng = position.longitude;
-        _lastWebTime = nowMs;
+        _lastLat = position.latitude;
+        _lastLng = position.longitude;
+        _lastTimeMs = nowMs;
 
-        _currentSatelliteCount = 8; // Indicador representativo para web/geolocator
-        
+        if (_currentSatelliteCount == 0) {
+          _currentSatelliteCount = 8;
+        }
+
         final gpsData = RawGpsData(
           latitude: position.latitude,
           longitude: position.longitude,
@@ -172,15 +222,18 @@ class RawGpsService {
 
   void _stopListening() async {
     try {
+      _nativeWatchdogTimer?.cancel();
+      _nativeWatchdogTimer = null;
+
       await _eventSubscription?.cancel();
       _eventSubscription = null;
 
       await _geolocatorSubscription?.cancel();
       _geolocatorSubscription = null;
 
-      _lastWebLat = null;
-      _lastWebLng = null;
-      _lastWebTime = null;
+      _lastLat = null;
+      _lastLng = null;
+      _lastTimeMs = null;
 
       if (!kIsWeb) {
         await _methodChannel.invokeMethod('stopLocationUpdates');

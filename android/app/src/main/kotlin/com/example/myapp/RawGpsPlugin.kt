@@ -112,22 +112,47 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         }
         
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) 
+            != PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
             result.error("PERMISSION_DENIED", "Location permission not granted", null)
             return
         }
 
         try {
-            // Request location updates with MAXIMUM FREQUENCY
-            // minTimeMs = 0 -> No throttling, get updates as fast as GPS provides them
-            // minDistanceM = 0f -> Update on every GPS tick, not just when moving
-            locationManager?.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                0L,        // minTimeMs = 0 (maximum frequency)
-                0f,        // minDistanceM = 0 (no distance filter)
-                locationListener,
-                Looper.getMainLooper()
-            )
+            // Check available providers
+            val hasGps = locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+            val hasNet = locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+
+            // Dispatch last known location immediately so UI doesn't wait with 0
+            val lastGps = if (hasGps) locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER) else null
+            val lastNet = if (hasNet) locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) else null
+            val bestLast = lastGps ?: lastNet
+            if (bestLast != null) {
+                locationListener.onLocationChanged(bestLast)
+            }
+
+            // Register GPS Provider for maximum precision and frequency
+            if (hasGps) {
+                locationManager?.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    0L,        // minTimeMs = 0 (maximum frequency)
+                    0f,        // minDistanceM = 0 (no distance filter)
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+            }
+
+            // Also register Network Provider for immediate fix indoors/outdoors
+            if (hasNet) {
+                locationManager?.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    1000L,     // 1 second interval
+                    0f,
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+            }
 
             // Register GNSS Status listener to monitor satellite count and signal quality
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -137,7 +162,6 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                             try {
                                 satelliteCount = status.satelliteCount
                                 
-                                // Optional: Send detailed satellite info to Flutter
                                 val satelliteInfo = hashMapOf(
                                     "event" to "gnss_status",
                                     "satelliteCount" to satelliteCount,
@@ -168,7 +192,6 @@ class RawGpsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                     locationManager?.registerGnssStatusCallback(gnssCallback!!, null)
                 } catch (e: Exception) {
                     android.util.Log.e("RawGpsPlugin", "Error registering GNSS callback: ${e.message}")
-                    // Continue without GNSS status - not critical
                 }
             }
 
