@@ -81,82 +81,34 @@ class RawGpsService {
   }
 
   void _startListening() async {
-    // Si estamos en la Web (Netlify), usar directamente la API de Geolocalización del navegador
     if (kIsWeb) {
       _startGeolocatorFallback('browser_web');
       return;
     }
 
-    _receivedNativeFix = false;
-
-    // En Android nativo, intentar usar el plugin de bajo nivel RawGpsPlugin
+    // En Android nativo, escuchar EventChannel y luego solicitar startLocationUpdates
     try {
-      await _methodChannel.invokeMethod('startLocationUpdates');
-
-      // Watchdog: si en 2.5 segundos el GPS nativo no ha emitido ninguna posición
-      // (por ejemplo en interiores o mientras adquiere satélites), arrancar Geolocator en paralelo
-      _nativeWatchdogTimer?.cancel();
-      _nativeWatchdogTimer = Timer(const Duration(milliseconds: 2500), () {
-        if (!_receivedNativeFix) {
-          _startGeolocatorFallback('native_watchdog_fallback');
-        }
-      });
-
       _eventSubscription = _eventChannel.receiveBroadcastStream().listen(
         (dynamic event) {
           if (event is Map) {
             if (event.containsKey('latitude')) {
-              _receivedNativeFix = true;
-              _nativeWatchdogTimer?.cancel();
-              // Si ya había fallback de Geolocator activo, cancelarlo para dar prioridad al GPS nativo
-              if (_geolocatorSubscription != null) {
-                _geolocatorSubscription?.cancel();
-                _geolocatorSubscription = null;
-              }
-
               final rawData = RawGpsData.fromMap(event);
               _currentSatelliteCount = rawData.satelliteCount;
-
-              // Asegurar cálculo de velocidad si el sensor entrega 0.0 en movimiento
-              double speed = rawData.speed;
-              final nowMs = rawData.timestamp;
-              if (speed <= 0.0 && _lastLat != null && _lastLng != null && _lastTimeMs != null) {
-                final dt = (nowMs - _lastTimeMs!) / 1000.0;
-                if (dt > 0.3 && dt < 10.0) {
-                  final d = Geolocator.distanceBetween(_lastLat!, _lastLng!, rawData.latitude, rawData.longitude);
-                  if (d > 0.6) {
-                    speed = d / dt;
-                  }
-                }
-              }
-
-              _lastLat = rawData.latitude;
-              _lastLng = rawData.longitude;
-              _lastTimeMs = nowMs;
-
-              final correctedData = RawGpsData(
-                latitude: rawData.latitude,
-                longitude: rawData.longitude,
-                speed: speed,
-                accuracy: rawData.accuracy,
-                altitude: rawData.altitude,
-                bearing: rawData.bearing,
-                timestamp: rawData.timestamp,
-                satelliteCount: rawData.satelliteCount,
-                provider: rawData.provider,
-              );
-
-              _locationController?.add(correctedData);
+              _locationController?.add(rawData);
             } else if (event['event'] == 'gnss_status') {
               _currentSatelliteCount = event['satelliteCount'] as int;
             }
           }
         },
         onError: (error) {
+          debugPrint('⚠️ Error en stream GPS nativo: $error. Conmutando a Geolocator.');
           _startGeolocatorFallback('native_stream_error');
         },
       );
+
+      await _methodChannel.invokeMethod('startLocationUpdates');
     } catch (e) {
+      debugPrint('⚠️ Error invocando startLocationUpdates: $e. Conmutando a Geolocator.');
       _startGeolocatorFallback('native_unsupported');
     }
   }

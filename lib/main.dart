@@ -14,7 +14,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Inicializar almacenamiento local (SQLite en móvil, localStorage en Web)
-  await DatabaseHelper.instance.init();
+  try {
+    await DatabaseHelper.instance.init();
+  } catch (e) {
+    debugPrint('⚠️ Error inicializando DatabaseHelper: $e');
+  }
 
   runApp(const SpeeDGAApp());
 }
@@ -254,10 +258,10 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       if (!mounted) return;
       setState(() {
         _totalSeconds++;
-        if (!_isAutoPaused) {
+        if (_currentSpeed >= 1.0) {
           _movingSeconds++;
           if (_movingSeconds > 2 && _totalDistance > 0.01) {
-            _avgSpeed = _totalDistance / (_movingSeconds / 3600);
+            _avgSpeed = _totalDistance / (_movingSeconds / 3600.0);
           }
         }
       });
@@ -345,7 +349,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
     // Guardar en la Base de Datos Local (SQLite en móvil, localStorage en Web)
     try {
-      if (_totalDistance > 0.02) {
+      if (_totalDistance > 0.01) {
         final trip = Trip(
           fechaRegistro: _startTime ?? DateTime.now(),
           distanciaKm: _totalDistance,
