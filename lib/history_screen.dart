@@ -260,6 +260,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return ValueListenableBuilder<List<Bike>>(
       valueListenable: BikeService.instance.bikesNotifier,
       builder: (context, bikes, child) {
+        if (bikes.isEmpty) return const SizedBox.shrink();
+
         final filterItems = ['Todas', ...bikes.map((b) => b.name)];
 
         return SingleChildScrollView(

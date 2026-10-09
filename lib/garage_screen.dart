@@ -55,9 +55,12 @@ class _GarageScreenState extends State<GarageScreen> {
       body: ValueListenableBuilder<List<Bike>>(
         valueListenable: BikeService.instance.bikesNotifier,
         builder: (context, bikes, child) {
-          final activeBike = BikeService.instance.activeBikeNotifier.value ??
-              (bikes.isNotEmpty ? bikes.first : null);
-          final otherBikes = bikes.where((b) => b.id != activeBike?.id).toList();
+          if (bikes.isEmpty) {
+            return _buildEmptyGarageView(context);
+          }
+
+          final activeBike = BikeService.instance.activeBikeNotifier.value ?? bikes.first;
+          final otherBikes = bikes.where((b) => b.id != activeBike.id).toList();
 
           return ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -168,22 +171,35 @@ class _GarageScreenState extends State<GarageScreen> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: SpeeDGATheme.darkCardElevated,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: SpeeDGATheme.darkBorder),
-                ),
-                child: Text(
-                  bike.specs,
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: SpeeDGATheme.aeroCyan,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: SpeeDGATheme.darkCardElevated,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SpeeDGATheme.darkBorder),
+                    ),
+                    child: Text(
+                      bike.specs,
+                      style: const TextStyle(
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: SpeeDGATheme.aeroCyan,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: SpeeDGATheme.textMuted),
+                    tooltip: 'Quitar bicicleta',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _confirmDeleteBike(context, bike),
+                  ),
+                ],
               ),
             ],
           ),
@@ -474,22 +490,35 @@ class _GarageScreenState extends State<GarageScreen> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: SpeeDGATheme.darkCardElevated,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: SpeeDGATheme.darkBorder),
-                ),
-                child: Text(
-                  bike.type.toUpperCase(),
-                  style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: SpeeDGATheme.textSecondary,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: SpeeDGATheme.darkCardElevated,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SpeeDGATheme.darkBorder),
+                    ),
+                    child: Text(
+                      bike.type.toUpperCase(),
+                      style: const TextStyle(
+                        fontFamily: 'Courier',
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: SpeeDGATheme.textSecondary,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18, color: SpeeDGATheme.textMuted),
+                    tooltip: 'Quitar bicicleta',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _confirmDeleteBike(context, bike),
+                  ),
+                ],
               ),
             ],
           ),
@@ -716,4 +745,149 @@ class _GarageScreenState extends State<GarageScreen> {
       ),
     );
   }
+
+  void _confirmDeleteBike(BuildContext context, Bike bike) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SpeeDGATheme.darkCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: SpeeDGATheme.darkBorder),
+        ),
+        title: Text(
+          '¿Eliminar "${bike.name}"?',
+          style: const TextStyle(
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        content: const Text(
+          'Esta bicicleta se eliminará de tu garaje y no se acumularán más salidas en su odómetro.',
+          style: TextStyle(color: SpeeDGATheme.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCELAR', style: TextStyle(color: SpeeDGATheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: SpeeDGATheme.pulseRed,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await BikeService.instance.deleteBike(bike.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Bicicleta "${bike.name}" eliminada del garaje'),
+                    backgroundColor: SpeeDGATheme.darkCardElevated,
+                  ),
+                );
+              }
+            },
+            child: const Text('ELIMINAR', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyGarageView(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      children: [
+        const SizedBox(height: 24),
+        Center(
+          child: Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: SpeeDGATheme.darkCardElevated,
+              border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.35), width: 2),
+              boxShadow: SpeeDGATheme.neonGlow(blur: 16, color: SpeeDGATheme.neonLime.withOpacity(0.18)),
+            ),
+            child: const Icon(Icons.pedal_bike_outlined, size: 42, color: SpeeDGATheme.neonLime),
+          ),
+        ),
+        const SizedBox(height: 22),
+        const Center(
+          child: Text(
+            'GARAJE VACÍO',
+            style: TextStyle(
+              fontFamily: 'Courier',
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Center(
+          child: Text(
+            'No tienes ninguna bicicleta registrada todavía.\nAñade tu bicicleta para registrar su odómetro individual, telemetría por vehículo y alertas de desgaste.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: SpeeDGATheme.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+        Center(
+          child: ElevatedButton.icon(
+            onPressed: () => _showAddBikeDialog(context),
+            icon: const Icon(Icons.add, color: Colors.black, size: 20),
+            label: const Text(
+              'AÑADIR MI PRIMERA BICICLETA',
+              style: TextStyle(
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                letterSpacing: 0.8,
+                color: Colors.black,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: SpeeDGATheme.neonLime,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 6,
+              shadowColor: SpeeDGATheme.neonLime.withOpacity(0.4),
+            ),
+          ),
+        ),
+        const SizedBox(height: 36),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: SpeeDGATheme.bentoCardDecoration(),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, color: SpeeDGATheme.aeroCyan, size: 20),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'speeDGA permite registrar múltiples bicicletas (carretera, gravel, MTB) y alternar entre ellas en 1 toque. Cada una llevará su propio contador de kilómetros y aviso de mantenimiento.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SpeeDGATheme.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
+

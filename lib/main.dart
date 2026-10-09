@@ -777,7 +777,8 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   ValueListenableBuilder<Bike?>(
                     valueListenable: BikeService.instance.activeBikeNotifier,
                     builder: (context, bike, child) {
-                      final bikeName = bike?.name ?? 'Carretera Aero';
+                      final hasBike = bike != null;
+                      final bikeName = hasBike ? bike.name : 'Añadir Bici';
                       return GestureDetector(
                         onTap: widget.onNavigateToGarage,
                         child: Container(
@@ -785,18 +786,26 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           decoration: BoxDecoration(
                             color: SpeeDGATheme.darkCard,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.35)),
+                            border: Border.all(
+                              color: hasBike
+                                  ? SpeeDGATheme.neonLime.withOpacity(0.35)
+                                  : SpeeDGATheme.alertOrange.withOpacity(0.5),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.pedal_bike, size: 13, color: SpeeDGATheme.neonLime),
+                              Icon(
+                                hasBike ? Icons.pedal_bike : Icons.add_circle_outline,
+                                size: 13,
+                                color: hasBike ? SpeeDGATheme.neonLime : SpeeDGATheme.alertOrange,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 bikeName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: hasBike ? Colors.white : SpeeDGATheme.alertOrange,
                                 ),
                               ),
                             ],
