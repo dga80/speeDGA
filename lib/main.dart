@@ -188,12 +188,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   decoration: BoxDecoration(
                     color: isTracking ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 3),
-                    boxShadow: SpeeDGATheme.neonGlow(
-                      color: isTracking ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
-                      blur: 22,
-                      spread: 2,
-                    ),
                   ),
                   child: Icon(
                     isTracking ? Icons.stop : Icons.add,
@@ -726,10 +720,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           decoration: BoxDecoration(
                             color: _satelliteCount >= 3 ? SpeeDGATheme.neonLime : SpeeDGATheme.warningAmber,
                             shape: BoxShape.circle,
-                            boxShadow: SpeeDGATheme.neonGlow(
-                              color: _satelliteCount >= 3 ? SpeeDGATheme.neonLime : SpeeDGATheme.warningAmber,
-                              blur: 6,
-                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -840,7 +830,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           decoration: BoxDecoration(
                             color: SpeeDGATheme.neonLime,
                             borderRadius: BorderRadius.circular(10),
-                            boxShadow: SpeeDGATheme.neonGlow(blur: 6),
                           ),
                           child: Text(
                             '$_savedTripsCount',
@@ -1095,7 +1084,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               decoration: BoxDecoration(
                 color: SpeeDGATheme.darkCard.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: zoneColor.withOpacity(0.4), width: 1),
+                border: Border.all(color: SpeeDGATheme.darkBorder, width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1106,7 +1095,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                     decoration: BoxDecoration(
                       color: zoneColor,
                       shape: BoxShape.circle,
-                      boxShadow: SpeeDGATheme.neonGlow(color: zoneColor, blur: 8),
                     ),
                   ),
                   const SizedBox(width: 7),
@@ -1125,29 +1113,19 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
             ),
             const SizedBox(height: 12),
 
-            // 2. Dígitos gigantes de velocidad (Opción 2: 124px - 140px con resplandor neón)
+            // 2. Dígitos gigantes de velocidad (Space Grotesk nítido, sin glow)
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 safeSpeed.toStringAsFixed(1),
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: SpeeDGATheme.fontSpaceGrotesk,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+                  fontFeatures: [FontFeature.tabularFigures()],
                   fontSize: 130,
                   fontWeight: FontWeight.w900,
                   color: SpeeDGATheme.neonLime,
                   letterSpacing: -4.0,
                   height: 0.92,
-                  shadows: [
-                    Shadow(
-                      color: SpeeDGATheme.neonLime.withOpacity(0.75),
-                      blurRadius: 28,
-                    ),
-                    Shadow(
-                      color: SpeeDGATheme.neonLime.withOpacity(0.35),
-                      blurRadius: 55,
-                    ),
-                  ],
                 ),
               ),
             ),

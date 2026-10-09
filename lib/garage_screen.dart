@@ -24,10 +24,9 @@ class _GarageScreenState extends State<GarageScreen> {
             Container(
               width: 9,
               height: 9,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: SpeeDGATheme.neonLime,
                 shape: BoxShape.circle,
-                boxShadow: SpeeDGATheme.neonGlow(blur: 10, spread: 2),
               ),
             ),
             const SizedBox(width: 10),
@@ -135,9 +134,7 @@ class _GarageScreenState extends State<GarageScreen> {
     return Container(
       decoration: SpeeDGATheme.bentoCardDecoration(
         backgroundColor: SpeeDGATheme.darkCard,
-        borderColor: SpeeDGATheme.neonLime.withOpacity(0.35),
-        glow: true,
-        glowColor: SpeeDGATheme.neonLime,
+        borderColor: SpeeDGATheme.darkBorder,
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -152,10 +149,9 @@ class _GarageScreenState extends State<GarageScreen> {
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: SpeeDGATheme.neonLime,
                       shape: BoxShape.circle,
-                      boxShadow: SpeeDGATheme.neonGlow(blur: 8),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -809,8 +805,7 @@ class _GarageScreenState extends State<GarageScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: SpeeDGATheme.darkCardElevated,
-              border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.35), width: 2),
-              boxShadow: SpeeDGATheme.neonGlow(blur: 16, color: SpeeDGATheme.neonLime.withOpacity(0.18)),
+              border: Border.all(color: SpeeDGATheme.darkBorder, width: 2),
             ),
             child: const Icon(Icons.pedal_bike_outlined, size: 42, color: SpeeDGATheme.neonLime),
           ),

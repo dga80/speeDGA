@@ -25,10 +25,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               width: 9,
               height: 9,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: SpeeDGATheme.neonLime,
                 shape: BoxShape.circle,
-                boxShadow: SpeeDGATheme.neonGlow(blur: 10, spread: 2),
               ),
             ),
             const SizedBox(width: 10),
@@ -152,7 +151,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF0D1217),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: SpeeDGATheme.darkBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

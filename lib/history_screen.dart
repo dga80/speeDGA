@@ -334,7 +334,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       decoration: BoxDecoration(
                         color: SpeeDGATheme.neonLime.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.3)),
+                        border: Border.all(color: SpeeDGATheme.darkBorder),
                       ),
                       child: const Icon(Icons.pedal_bike, color: SpeeDGATheme.neonLime, size: 18),
                     ),
@@ -367,9 +367,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: SpeeDGATheme.neonLime.withOpacity(0.1),
+                    color: SpeeDGATheme.darkCardElevated,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.25)),
+                    border: Border.all(color: SpeeDGATheme.darkBorder),
                   ),
                   child: Row(
                     children: [

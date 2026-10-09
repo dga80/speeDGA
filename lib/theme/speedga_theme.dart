@@ -28,15 +28,9 @@ class SpeeDGATheme {
   static const Color textMuted = Color(0xFF64748B);
   static const Color textTertiary = Color(0xFF475569);
 
-  // Sombras y Resplandores (Glow)
+  // Sombras y Resplandores (Desactivados por legibilidad)
   static List<BoxShadow> neonGlow({Color color = neonLime, double spread = 1.0, double blur = 16.0}) {
-    return [
-      BoxShadow(
-        color: color.withOpacity(0.35),
-        blurRadius: blur,
-        spreadRadius: spread,
-      ),
-    ];
+    return const [];
   }
 
   static List<BoxShadow> cardShadow = [
@@ -47,7 +41,7 @@ class SpeeDGATheme {
     ),
   ];
 
-  // Decoraciones para Tarjetas Bento
+  // Decoraciones para Tarjetas Bento (bordes limpios y sin glow)
   static BoxDecoration bentoCardDecoration({
     Color backgroundColor = darkCard,
     Color borderColor = darkBorder,
@@ -59,10 +53,7 @@ class SpeeDGATheme {
       color: backgroundColor,
       borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(color: borderColor, width: 1.0),
-      boxShadow: [
-        if (glow) ...neonGlow(color: glowColor, blur: 20.0, spread: 0.5),
-        ...cardShadow,
-      ],
+      boxShadow: cardShadow,
     );
   }
 

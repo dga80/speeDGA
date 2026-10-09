@@ -68,7 +68,7 @@ class SpeedometerGauge extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: SpeeDGATheme.darkCard.withOpacity(0.9),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: zoneColor.withOpacity(0.4), width: 1),
+                    border: Border.all(color: SpeeDGATheme.darkBorder, width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -79,13 +79,6 @@ class SpeedometerGauge extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: zoneColor,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: zoneColor.withOpacity(0.8),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -119,16 +112,6 @@ class SpeedometerGauge extends StatelessWidget {
                       color: SpeeDGATheme.neonLime,
                       letterSpacing: -2.5,
                       height: 0.95,
-                      shadows: [
-                        Shadow(
-                          color: SpeeDGATheme.neonLime.withOpacity(0.6),
-                          blurRadius: 22,
-                        ),
-                        Shadow(
-                          color: SpeeDGATheme.neonLime.withOpacity(0.3),
-                          blurRadius: 40,
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -300,23 +283,7 @@ class _GaugeArcPainter extends CustomPainter {
       stops: const [0.0, 0.45, 0.75, 1.0],
     ).createShader(Rect.fromCircle(center: center, radius: radius));
 
-    // Glow desenfocado exterior
-    final glowPaint = Paint()
-      ..shader = gradientShader
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 14.0
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepProgress,
-      false,
-      glowPaint,
-    );
-
-    // Trazo nítido principal
+    // Trazo nítido principal (sin glow exterior)
     final progressPaint = Paint()
       ..shader = gradientShader
       ..style = PaintingStyle.stroke
