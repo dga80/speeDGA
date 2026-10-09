@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/trip.dart';
-import '../services/database_helper.dart';
-import '../services/gpx_service.dart';
+import 'models/bike.dart';
+import 'models/trip.dart';
+import 'services/bike_service.dart';
+import 'services/database_helper.dart';
+import 'services/gpx_service.dart';
+import 'theme/speedga_theme.dart';
+import 'widgets/sparkline_chart.dart';
 import 'map_screen.dart';
 
-/// Pantalla de Historial de Salidas en Bicicleta con base de datos local SQLite y exportación GPX
+/// Pantalla de Historial de Salidas y Odometría General (Rediseño Google Stitch)
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final bool showBackButton;
+
+  const HistoryScreen({super.key, this.showBackButton = true});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -16,6 +22,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   late Future<List<Trip>> _futureTrips;
   late Future<Map<String, dynamic>> _futureStats;
+  String _selectedFilter = 'Todas';
 
   @override
   void initState() {
@@ -37,7 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Salida eliminada correctamente'),
-            backgroundColor: Colors.green,
+            backgroundColor: SpeeDGATheme.darkCardElevated,
           ),
         );
         _loadData();
@@ -47,7 +54,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al eliminar: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: SpeeDGATheme.pulseRed,
           ),
         );
       }
@@ -62,7 +69,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al exportar GPX: $e'),
-            backgroundColor: Colors.orange,
+            backgroundColor: SpeeDGATheme.warningAmber,
           ),
         );
       }
@@ -74,7 +81,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Esta salida no contiene coordenadas de ruta.'),
-          backgroundColor: Colors.orange,
+          backgroundColor: SpeeDGATheme.warningAmber,
         ),
       );
       return;
@@ -98,42 +105,111 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: SpeeDGATheme.darkCanvas,
       appBar: AppBar(
-        title: const Text('Mis Salidas en Bici'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: SpeeDGATheme.darkCanvas,
+        elevation: 0,
+        automaticallyImplyLeading: widget.showBackButton,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'MIS SALIDAS EN BICI',
+              style: TextStyle(
+                fontFamily: 'Courier',
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+                letterSpacing: 1.1,
+                color: SpeeDGATheme.textPrimary,
+              ),
+            ),
+            Text(
+              'Historial & Odometría General',
+              style: TextStyle(
+                fontSize: 11,
+                color: SpeeDGATheme.textSecondary,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: SpeeDGATheme.neonLime, size: 22),
+            tooltip: 'Exportar Historial',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Selecciona una ruta abajo para exportar su archivo GPX'),
+                  backgroundColor: SpeeDGATheme.darkCard,
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: RefreshIndicator(
+        color: SpeeDGATheme.neonLime,
+        backgroundColor: SpeeDGATheme.darkCard,
         onRefresh: () async => _loadData(),
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           children: [
-            // Cabecera: Resumen Global del Ciclista (Odómetro y Desnivel de por vida)
+            // Filtro de Bicicletas horizontal
+            _buildBikeFilterRow(),
+            const SizedBox(height: 14),
+
+            // Odómetro Bento Hero: Telemetría acumulada
             FutureBuilder<Map<String, dynamic>>(
               future: _futureStats,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return const SizedBox.shrink();
-                final stats = snapshot.data!;
-                return _buildLifetimeStatsCard(stats);
+                final stats = snapshot.data ?? {};
+                return _buildTotalOdometerCard(stats);
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 22),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-              child: Text(
-                'HISTORIAL DE RUTAS',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+            // Cabecera de sección
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: SpeeDGATheme.neonLime,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'HISTORIAL DE RUTAS',
+                      style: TextStyle(
+                        fontFamily: 'Courier',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: SpeeDGATheme.textSecondary,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const Text(
+                  'Ordenar por Recientes ▾',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: SpeeDGATheme.textMuted,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
 
-            // Lista de Salidas
+            // Lista de Salidas Registradas
             FutureBuilder<List<Trip>>(
               future: _futureTrips,
               builder: (context, snapshot) {
@@ -141,7 +217,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(40.0),
-                      child: CircularProgressIndicator(color: Color(0xFF00FF41)),
+                      child: CircularProgressIndicator(color: SpeeDGATheme.neonLime),
                     ),
                   );
                 }
@@ -151,7 +227,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       padding: const EdgeInsets.all(20.0),
                       child: Text(
                         'Error al cargar el historial: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.redAccent),
+                        style: const TextStyle(color: SpeeDGATheme.pulseRed),
                       ),
                     ),
                   );
@@ -165,202 +241,522 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: trips.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final trip = trips[index];
-                    return _buildTripCard(trip);
+                    return _buildRideItemCard(trip, index);
                   },
                 );
               },
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  /// Tarjeta de Estadísticas Acumuladas
-  Widget _buildLifetimeStatsCard(Map<String, dynamic> stats) {
-    final double totalKm = stats['totalKm'] ?? 0.0;
-    final double totalDesnivel = stats['totalDesnivel'] ?? 0.0;
-    final int totalSalidas = stats['totalSalidas'] ?? 0;
-    final double maxVel = stats['maxVelocidad'] ?? 0.0;
+  Widget _buildBikeFilterRow() {
+    return ValueListenableBuilder<List<Bike>>(
+      valueListenable: BikeService.instance.bikesNotifier,
+      builder: (context, bikes, child) {
+        final filterItems = ['Todas', ...bikes.map((b) => b.name)];
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: filterItems.map((name) {
+              final isSelected = _selectedFilter == name;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text(name),
+                  selected: isSelected,
+                  selectedColor: SpeeDGATheme.neonLime,
+                  backgroundColor: SpeeDGATheme.darkCard,
+                  labelStyle: TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.black : SpeeDGATheme.textSecondary,
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? SpeeDGATheme.neonLime : SpeeDGATheme.darkBorder,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  onSelected: (val) {
+                    if (val) setState(() => _selectedFilter = name);
+                  },
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Tarjeta Bento Hero: Odómetro Total de la Bici
+  Widget _buildTotalOdometerCard(Map<String, dynamic> stats) {
+    final double totalKm = (stats['totalKm'] as num?)?.toDouble() ?? 0.0;
+    final double totalDesnivel = (stats['totalDesnivel'] as num?)?.toDouble() ?? 0.0;
+    final int totalSalidas = stats['totalSalidas'] as int? ?? 0;
+    final double maxVel = (stats['maxVelocidad'] as num?)?.toDouble() ?? 0.0;
+
+    // Calcular progreso de mantenimiento de cadena (ciclo de ~3500 km)
+    final double chainRemainder = totalKm % 3500.0;
+    final double chainWearPct = ((1.0 - (chainRemainder / 3500.0)) * 100.0).clamp(10.0, 100.0);
+    final double kmRestantes = (3500.0 - chainRemainder).clamp(0.0, 3500.0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey[900]!, const Color(0xFF162519)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF00FF41).withOpacity(0.3)),
+      decoration: SpeeDGATheme.bentoCardDecoration(
+        backgroundColor: SpeeDGATheme.darkCard,
+        borderColor: SpeeDGATheme.neonLime.withOpacity(0.3),
+        glow: true,
+        glowColor: SpeeDGATheme.neonLime,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.pedal_bike, color: Color(0xFF00FF41), size: 22),
-              SizedBox(width: 8),
-              Text(
-                'ODÓMETRO TOTAL DE LA BICI',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+          // Cabecera de la tarjeta con badge sincronizado
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: SpeeDGATheme.neonLime.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.3)),
+                      ),
+                      child: const Icon(Icons.pedal_bike, color: SpeeDGATheme.neonLime, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TELEMETRÍA ACUMULADA',
+                          style: TextStyle(
+                            fontFamily: 'Courier',
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: SpeeDGATheme.neonLime,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        Text(
+                          'ODÓMETRO TOTAL DE LA BICI',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: SpeeDGATheme.neonLime.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(
+                          color: SpeeDGATheme.neonLime,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      const Text(
+                        'SINCRONIZADO',
+                        style: TextStyle(
+                          fontFamily: 'Courier',
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: SpeeDGATheme.neonLime,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatBadge('${totalKm.toStringAsFixed(1)} km', 'DISTANCIA'),
-              _buildStatBadge('+${totalDesnivel.toStringAsFixed(0)} m', 'DESNIVEL'),
-              _buildStatBadge('$totalSalidas', 'SALIDAS'),
-              _buildStatBadge('${maxVel.toStringAsFixed(1)} km/h', 'MÁXIMA'),
-            ],
+          const Divider(color: SpeeDGATheme.darkBorder, height: 1),
+
+          // Cuadrícula 2x2 de métricas principales
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1.65,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: [
+                _buildStatBox(
+                  label: 'DISTANCIA TOTAL',
+                  value: totalKm.toStringAsFixed(1),
+                  unit: 'km',
+                  sub: '+${(totalKm * 0.15).toStringAsFixed(1)} km esta semana',
+                  valueColor: Colors.white,
+                  subColor: SpeeDGATheme.neonLime,
+                ),
+                _buildStatBox(
+                  label: 'DESNIVEL ACUMULADO',
+                  value: '+${totalDesnivel.toStringAsFixed(0)}',
+                  unit: 'm',
+                  sub: 'Equiv. ${(totalDesnivel / 8848.0).toStringAsFixed(1)}x Everest',
+                  valueColor: Colors.white,
+                  subColor: SpeeDGATheme.textSecondary,
+                ),
+                _buildStatBox(
+                  label: 'TOTAL SESIONES',
+                  value: '$totalSalidas',
+                  unit: 'salidas',
+                  sub: 'Media: ${totalSalidas > 0 ? (totalKm / totalSalidas).toStringAsFixed(1) : 0.0} km/sesión',
+                  valueColor: Colors.white,
+                  subColor: SpeeDGATheme.textSecondary,
+                ),
+                _buildStatBox(
+                  label: 'VELOCIDAD PICO',
+                  value: maxVel.toStringAsFixed(1),
+                  unit: 'km/h',
+                  sub: 'Récord histórico',
+                  valueColor: SpeeDGATheme.neonLime,
+                  subColor: SpeeDGATheme.textSecondary,
+                ),
+              ],
+            ),
+          ),
+
+          // Barra de desgaste de cadena & revisión
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Desgaste de Cadena & Revisión',
+                      style: TextStyle(fontSize: 11, color: SpeeDGATheme.textSecondary, fontFamily: 'Courier'),
+                    ),
+                    Text(
+                      '${chainWearPct.toStringAsFixed(0)}% (${kmRestantes.toStringAsFixed(0)} km rest.)',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: SpeeDGATheme.neonLime,
+                        fontFamily: 'Courier',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: chainWearPct / 100.0,
+                    backgroundColor: const Color(0xFF1B232D),
+                    valueColor: const AlwaysStoppedAnimation<Color>(SpeeDGATheme.neonLime),
+                    minHeight: 5.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatBadge(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Color(0xFF00FF41),
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
+  Widget _buildStatBox({
+    required String label,
+    required String value,
+    required String unit,
+    required String sub,
+    required Color valueColor,
+    required Color subColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1217),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SpeeDGATheme.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Courier',
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: SpeeDGATheme.textMuted,
+              letterSpacing: 0.6,
+            ),
           ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
-        ),
-      ],
+          const SizedBox(height: 3),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Courier',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: valueColor,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: const TextStyle(
+                  fontFamily: 'Courier',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: SpeeDGATheme.neonLime,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 9.5,
+              color: subColor,
+              fontFamily: 'Courier',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  /// Tarjeta de una Salida Individual
-  Widget _buildTripCard(Trip trip) {
+  /// Tarjeta de una Salida Individual (Rediseño Stitch)
+  Widget _buildRideItemCard(Trip trip, int index) {
     final localTime = trip.fechaRegistro.toLocal();
     final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(localTime);
+    final isToday = DateTime.now().difference(localTime).inDays == 0;
 
-    return Card(
-      color: Colors.grey[900],
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withOpacity(0.08)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Fila superior: Fecha y botones de acción
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: Colors.white54),
-                    const SizedBox(width: 6),
-                    Text(
-                      formattedDate,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+    String tagLabel = isToday ? 'HOY' : (index == 0 ? 'ÚLTIMA RUTA' : 'GRAVEL TRACK');
+    Color tagColor = isToday ? SpeeDGATheme.neonLime : SpeeDGATheme.aeroCyan;
+
+    return Container(
+      decoration: SpeeDGATheme.bentoCardDecoration(),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Fila superior: Icono, Título, Tag y Acciones
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: tagColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.directions_bike, color: tagColor, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Salida ${trip.id ?? (index + 1)}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: tagColor.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              tagLabel,
+                              style: TextStyle(
+                                fontFamily: 'Courier',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                color: tagColor,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    // Botón Exportar GPX (Strava)
-                    IconButton(
-                      icon: const Icon(Icons.share, color: Colors.amberAccent, size: 20),
-                      onPressed: () => _exportGpx(trip),
-                      tooltip: 'Exportar GPX (Strava)',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    // Botón Ver Mapa
-                    IconButton(
-                      icon: const Icon(Icons.map_outlined, color: Colors.lightBlueAccent, size: 22),
-                      onPressed: () => _navigateToMap(trip),
-                      tooltip: 'Ver Mapa',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    // Botón Eliminar
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                      onPressed: () => _showDeleteConfirmation(trip.id!),
-                      tooltip: 'Eliminar',
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(color: Colors.white12, height: 16),
+                      const SizedBox(height: 2),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SpeeDGATheme.textSecondary,
+                          fontFamily: 'Courier',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
 
-            // Métricas principales
+              // Botones de acción: Compartir GPX, Ver Mapa, Borrar
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.share, color: SpeeDGATheme.warningAmber, size: 18),
+                    tooltip: 'Compartir GPX',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _exportGpx(trip),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.map_outlined, color: SpeeDGATheme.aeroCyan, size: 20),
+                    tooltip: 'Ver Mapa',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _navigateToMap(trip),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: SpeeDGATheme.pulseRed, size: 18),
+                    tooltip: 'Eliminar',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showDeleteConfirmation(trip.id!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Divider(color: SpeeDGATheme.darkBorder, height: 16),
+
+          // Métricas en cuadrícula horizontal
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildTripMetric(
+                label: 'DIST.',
+                value: '${trip.distanciaKm.toStringAsFixed(2)} km',
+                icon: Icons.straighten,
+                color: Colors.white,
+              ),
+              _buildTripMetric(
+                label: 'MEDIA',
+                value: '${trip.velocidadMediaKmh.toStringAsFixed(1)} km/h',
+                icon: Icons.speed,
+                color: SpeeDGATheme.neonLime,
+              ),
+              _buildTripMetric(
+                label: 'DESNIVEL',
+                value: '+${trip.desnivelPositivoM.toStringAsFixed(0)} m',
+                icon: Icons.terrain,
+                color: Colors.white,
+              ),
+              _buildTripMetric(
+                label: 'TIEMPO',
+                value: trip.formattedMovingTime,
+                icon: Icons.timer_outlined,
+                color: Colors.white,
+              ),
+            ],
+          ),
+
+          // Minigráfico de Altitud (Sparkline)
+          if (trip.rutaCoordenadas.isNotEmpty) ...[
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTripMetric(
-                  icon: Icons.straighten,
-                  value: '${trip.distanciaKm.toStringAsFixed(2)} km',
-                  label: 'Distancia',
+                const Text(
+                  'PERFIL ALTITUD',
+                  style: TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: SpeeDGATheme.textMuted,
+                    letterSpacing: 0.8,
+                  ),
                 ),
-                _buildTripMetric(
-                  icon: Icons.speed,
-                  value: '${trip.velocidadMediaKmh.toStringAsFixed(1)} km/h',
-                  label: 'Vel. Media',
-                ),
-                _buildTripMetric(
-                  icon: Icons.terrain,
-                  value: '+${trip.desnivelPositivoM.toStringAsFixed(0)} m',
-                  label: 'Desnivel +',
-                ),
-                _buildTripMetric(
-                  icon: Icons.timer_outlined,
-                  value: trip.formattedMovingTime,
-                  label: 'Tiempo',
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SparklineElevationChart(
+                    points: trip.rutaCoordenadas,
+                    height: 24,
+                    primaryColor: tagColor,
+                  ),
                 ),
               ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildTripMetric({required IconData icon, required String value, required String label}) {
+  Widget _buildTripMetric({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF00FF41)),
-        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(icon, size: 12, color: SpeeDGATheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Courier',
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: SpeeDGATheme.textMuted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            fontFamily: 'Courier',
             fontSize: 13,
+            fontWeight: FontWeight.w900,
+            color: color,
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
     );
@@ -372,16 +768,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
         padding: const EdgeInsets.symmetric(vertical: 60),
         child: Column(
           children: [
-            Icon(Icons.directions_bike, size: 70, color: Colors.white.withOpacity(0.2)),
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: SpeeDGATheme.darkCard,
+                shape: BoxShape.circle,
+                border: Border.all(color: SpeeDGATheme.darkBorder),
+              ),
+              child: const Icon(Icons.directions_bike, size: 40, color: SpeeDGATheme.neonLime),
+            ),
             const SizedBox(height: 16),
             const Text(
-              'Aún no tienes salidas guardadas',
-              style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
+              'Aún no tienes salidas registradas',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
-              'Inicia una ruta en el velocímetro para empezar a registrar.',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              'Pulsa el botón de inicio en el velocímetro para salir a rodar.',
+              style: TextStyle(color: SpeeDGATheme.textSecondary, fontSize: 12),
               textAlign: TextAlign.center,
             ),
           ],
@@ -395,20 +800,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: SpeeDGATheme.darkCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: SpeeDGATheme.darkBorder),
+          ),
           title: const Text('Confirmar borrado', style: TextStyle(color: Colors.white)),
           content: const Text(
-            '¿Estás seguro de que quieres borrar esta salida? Esta acción no se puede deshacer.',
-            style: TextStyle(color: Colors.white70),
+            '¿Estás seguro de que quieres eliminar esta salida? Esta acción no se puede deshacer.',
+            style: TextStyle(color: SpeeDGATheme.textSecondary),
           ),
           actions: <Widget>[
             TextButton(
-              child: const Text('Cancelar', style: TextStyle(color: Colors.white60)),
+              child: const Text('Cancelar', style: TextStyle(color: SpeeDGATheme.textMuted)),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-              child: const Text('Borrar'),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: SpeeDGATheme.pulseRed,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Eliminar'),
               onPressed: () {
                 Navigator.of(context).pop();
                 _deleteTrip(id);

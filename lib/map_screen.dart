@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../models/trip.dart';
+import 'models/trip.dart';
+import 'theme/speedga_theme.dart';
 
 /// Pantalla para visualizar la ruta ciclista en el mapa interactivo con OpenStreetMap
 class MapScreen extends StatelessWidget {
@@ -33,10 +34,21 @@ class MapScreen extends StatelessWidget {
     final endPoint = hasPoints ? polylinePoints.last : null;
 
     return Scaffold(
+      backgroundColor: SpeeDGATheme.darkCanvas,
       appBar: AppBar(
-        title: const Text('Ruta de la Salida'),
-        backgroundColor: Colors.black,
+        title: const Text(
+          'Ruta de la Salida',
+          style: TextStyle(
+            fontFamily: 'Courier',
+            fontWeight: FontWeight.w900,
+            fontSize: 17,
+            letterSpacing: 1.0,
+            color: SpeeDGATheme.textPrimary,
+          ),
+        ),
+        backgroundColor: SpeeDGATheme.darkCanvas,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Stack(
         children: [
@@ -100,11 +112,7 @@ class MapScreen extends StatelessWidget {
               bottom: 24,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
-                ),
+                decoration: SpeeDGATheme.bentoCardDecoration(),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
@@ -127,12 +135,22 @@ class MapScreen extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            fontFamily: 'Courier',
+            color: SpeeDGATheme.textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 3),
         Text(
           value,
-          style: const TextStyle(color: Color(0xFF00FF41), fontSize: 14, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontFamily: 'Courier',
+            color: SpeeDGATheme.neonLime,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ],
     );
