@@ -861,89 +861,183 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
 
           const SizedBox(height: 8),
 
-          // Fila 2: Chips de Clima, Viento y Reloj local
+          // Fila 2: Micro Bento de 3 Columnas (Clima, Viento y Hora) según Stitch
           Row(
             children: [
+              // Pill 1: Clima
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: SpeeDGATheme.darkCard,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: SpeeDGATheme.darkBorder),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _weatherService.getWeatherIcon(_weatherCode ?? 0),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _currentTemp != null ? "${_currentTemp!.toStringAsFixed(0)}°C" : "21°C Despejado",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: SpeeDGATheme.darkCard,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: SpeeDGATheme.darkBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.air, size: 13, color: SpeeDGATheme.aeroCyan),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          _windSpeed != null && _windDirection != null
-                              ? "${_windSpeed!.toStringAsFixed(0)} km/h $_windDirection"
-                              : "8 km/h NE",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'CLIMA',
+                            style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: SpeeDGATheme.textMuted,
+                            ),
                           ),
-                        ),
+                          Text(
+                            _weatherService.getWeatherIcon(_weatherCode ?? 0),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            _currentTemp != null ? "${_currentTemp!.toStringAsFixed(0)}°" : "21°",
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _weatherDesc ?? 'Despejado',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: SpeeDGATheme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: SpeeDGATheme.darkCard,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: SpeeDGATheme.darkBorder),
-                ),
-                child: StreamBuilder(
-                  stream: Stream.periodic(const Duration(seconds: 1)),
-                  builder: (context, snapshot) {
-                    final now = DateTime.now();
-                    return Text(
-                      "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
-                      style: const TextStyle(
-                        fontFamily: 'Courier',
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: SpeeDGATheme.textSecondary,
+              const SizedBox(width: 8),
+
+              // Pill 2: Viento
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: SpeeDGATheme.darkCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SpeeDGATheme.darkBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'VIENTO',
+                            style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: SpeeDGATheme.textMuted,
+                            ),
+                          ),
+                          Icon(Icons.air, size: 13, color: SpeeDGATheme.aeroCyan),
+                        ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: 3),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            _windSpeed != null ? _windSpeed!.toStringAsFixed(0) : "8",
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: SpeeDGATheme.aeroCyan,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              _windDirection != null ? "km/h $_windDirection" : "km/h NE",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Courier',
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: SpeeDGATheme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Pill 3: Hora
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: SpeeDGATheme.darkCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SpeeDGATheme.darkBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'HORA',
+                            style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: SpeeDGATheme.textMuted,
+                            ),
+                          ),
+                          Icon(Icons.schedule, size: 13, color: SpeeDGATheme.textSecondary),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      StreamBuilder(
+                        stream: Stream.periodic(const Duration(seconds: 1)),
+                        builder: (context, snapshot) {
+                          final now = DateTime.now();
+                          return Text(
+                            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

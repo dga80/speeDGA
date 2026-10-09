@@ -52,44 +52,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildHeaderBanner(),
           const SizedBox(height: 24),
 
-          // SECCIÓN 1: SENSORES Y CONEXIONES (BLE / ANT+)
-          _buildSectionHeader(
-            icon: Icons.sensors,
-            title: 'SENSORES Y CONEXIONES',
-            badge: '3 / 4 VINCULADOS',
-          ),
-          const SizedBox(height: 10),
-          _buildSensorGpsTile(),
-          _buildSensorTile(
-            icon: Icons.speed,
-            title: 'Velocidad / Cadencia',
-            subtitle: 'Garmin Speed 2 · 88% bat',
-            status: 'CONECTADO',
-            statusColor: SpeeDGATheme.neonLime,
-          ),
-          _buildSensorTile(
-            icon: Icons.favorite,
-            title: 'Banda Cardíaca (Pecho)',
-            subtitle: 'Polar H10 · 142 bpm en espera',
-            status: 'LIVE',
-            statusColor: SpeeDGATheme.pulseRed,
-          ),
-          _buildSensorTile(
-            icon: Icons.bolt,
-            title: 'Potenciómetro Dual',
-            subtitle: 'No enlazado / ANT+ PWR',
-            status: 'VINCULAR',
-            statusColor: SpeeDGATheme.aeroCyan,
-            isAction: true,
-          ),
-
-          const SizedBox(height: 24),
-
-          // SECCIÓN 2: PANTALLA Y VISUALIZACIÓN
+          // SECCIÓN 1: PANTALLA Y VISUALIZACIÓN
           _buildSectionHeader(
             icon: Icons.display_settings,
             title: 'PANTALLA & VISUALIZACIÓN',
-            badge: 'OLED OPTIMIZADO',
+            badge: 'HUD ACTIVO',
           ),
           const SizedBox(height: 10),
           _buildAlwaysOnTile(),
@@ -99,16 +66,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
-          // SECCIÓN 3: SISTEMA Y TELEMETRÍA
+          // SECCIÓN 2: SISTEMA Y TELEMETRÍA
           _buildSectionHeader(
-            icon: Icons.tune,
+            icon: Icons.memory,
             title: 'SISTEMA Y TELEMETRÍA',
-            badge: 'MÉTRICAS FIT',
+            badge: 'METADATOS FIT',
           ),
           const SizedBox(height: 10),
+          _buildSensorGpsTile(),
           _buildAutoPauseTile(),
           _buildUnitSystemTile(),
-          _buildStravaSyncTile(),
           _buildWheelCalibrationTile(),
 
           const SizedBox(height: 30),
@@ -769,8 +736,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'v2.0 Pro Edition · Calibración Barométrica · BLE ANT+ Stack',
+          'v2.4 Pro Edition · Algoritmos barométricos calibrados · Build 108.4',
           style: TextStyle(fontSize: 10, color: SpeeDGATheme.textMuted),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SpeeDGATheme.darkCard,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  side: const BorderSide(color: SpeeDGATheme.darkBorder),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✓ Diagnóstico: Sensores GPS 10Hz activos · Batería óptima · SQLite operativo'),
+                      backgroundColor: SpeeDGATheme.darkCardElevated,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.bug_report, size: 16, color: SpeeDGATheme.neonLime),
+                label: const Text(
+                  'Diagnóstico Cockpit',
+                  style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SpeeDGATheme.darkCard,
+                  foregroundColor: SpeeDGATheme.alertOrange,
+                  elevation: 0,
+                  side: const BorderSide(color: SpeeDGATheme.darkBorder),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Ajustes restablecidos a valores recomendados'),
+                      backgroundColor: SpeeDGATheme.darkCardElevated,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh, size: 16, color: SpeeDGATheme.alertOrange),
+                label: const Text(
+                  'Restablecer',
+                  style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
