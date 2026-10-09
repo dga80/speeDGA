@@ -911,7 +911,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              _weatherDesc ?? 'Despejado',
+                              _weatherService.getWeatherDescription(_weatherCode ?? 0),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

@@ -45,4 +45,16 @@ class WeatherService {
     final index = ((degrees + 22.5) % 360 / 45).floor();
     return directions[index % 8];
   }
+
+  /// Convierte el código meteorológico WMO en un texto corto descriptivo
+  String getWeatherDescription(int code) {
+    if (code == 0) return "Sol";
+    if (code >= 1 && code <= 3) return "Nubes";
+    if (code >= 45 && code <= 48) return "Niebla";
+    if (code >= 51 && code <= 67) return "Lluvia";
+    if (code >= 71 && code <= 77) return "Nieve";
+    if (code >= 80 && code <= 82) return "Chubascos";
+    if (code >= 95 && code <= 99) return "Tormenta";
+    return "Despejado";
+  }
 }
