@@ -17,7 +17,6 @@ import 'services/settings_service.dart';
 import 'settings_screen.dart';
 import 'theme/speedga_theme.dart';
 import 'weather_service.dart';
-import 'widgets/speedometer_gauge.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +55,7 @@ class SpeeDGAApp extends StatelessWidget {
       title: 'speeDGA - Ciclocomputador Pro',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: SpeeDGATheme.darkCanvas,
+        scaffoldBackgroundColor: SpeeDGATheme.oledBlack,
         colorScheme: const ColorScheme.dark(
           primary: SpeeDGATheme.neonLime,
           surface: SpeeDGATheme.darkCard,
@@ -67,7 +66,7 @@ class SpeeDGAApp extends StatelessWidget {
   }
 }
 
-/// Contenedor de navegación principal con barra inferior y SpeedometerPage permanente
+/// Contenedor de navegación principal (Opción 2 - Barra flotante con botón central elevado)
 class MainNavigationShell extends StatefulWidget {
   const MainNavigationShell({super.key});
 
@@ -78,6 +77,7 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
   final GlobalKey<_SpeedometerPageState> _speedometerKey = GlobalKey<_SpeedometerPageState>();
+  final ValueNotifier<bool> _isTrackingNotifier = ValueNotifier<bool>(false);
 
   void _onTabSelected(int index) {
     setState(() {
@@ -88,13 +88,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SpeeDGATheme.darkCanvas,
-      // Usar IndexedStack para mantener SpeedometerPage siempre viva y activa en memoria (GPS, stream, timer)
+      backgroundColor: SpeeDGATheme.oledBlack,
+      // Usar IndexedStack para mantener SpeedometerPage siempre viva y activa en memoria
       body: IndexedStack(
         index: _currentIndex,
         children: [
           SpeedometerPage(
             key: _speedometerKey,
+            trackingNotifier: _isTrackingNotifier,
             onNavigateToHistory: () => _onTabSelected(1),
             onNavigateToGarage: () => _onTabSelected(2),
           ),
@@ -126,7 +127,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
               _buildNavItem(1, Icons.show_chart, 'Salidas'),
               _buildCenterActionButton(),
               _buildNavItem(2, Icons.pedal_bike, 'Bicis'),
-              _buildNavItem(3, Icons.tune, 'Ajustes'),
+              _buildNavItem(3, Icons.person_outline, 'Perfil'),
             ],
           ),
         ),
@@ -163,27 +164,58 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 
+  /// Botón central elevado con indicador de estado (Opción 2)
   Widget _buildCenterActionButton() {
-    return GestureDetector(
-      onTap: () {
-        // Si no estamos en la pestaña de velocímetro, cambiar a ella
-        if (_currentIndex != 0) {
-          setState(() => _currentIndex = 0);
-        } else {
-          // Si ya estamos en ella, alternar la grabación
-          _speedometerKey.currentState?.toggleTracking();
-        }
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isTrackingNotifier,
+      builder: (context, isTracking, child) {
+        return GestureDetector(
+          onTap: () {
+            if (_currentIndex != 0) {
+              setState(() => _currentIndex = 0);
+            }
+            _speedometerKey.currentState?.toggleTracking();
+          },
+          child: Transform.translate(
+            offset: const Offset(0, -14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: isTracking ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: SpeeDGATheme.neonGlow(
+                      color: isTracking ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
+                      blur: 22,
+                      spread: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    isTracking ? Icons.stop : Icons.add,
+                    color: isTracking ? Colors.white : Colors.black,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isTracking ? 'DETENER' : 'INICIAR',
+                  style: TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: isTracking ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       },
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: SpeeDGATheme.neonLime,
-          shape: BoxShape.circle,
-          boxShadow: SpeeDGATheme.neonGlow(blur: 16, spread: 2),
-        ),
-        child: const Icon(Icons.add, color: Colors.black, size: 28),
-      ),
     );
   }
 }
@@ -191,11 +223,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 class SpeedometerPage extends StatefulWidget {
   final VoidCallback? onNavigateToHistory;
   final VoidCallback? onNavigateToGarage;
+  final ValueNotifier<bool>? trackingNotifier;
 
   const SpeedometerPage({
     super.key,
     this.onNavigateToHistory,
     this.onNavigateToGarage,
+    this.trackingNotifier,
   });
 
   @override
@@ -215,6 +249,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   bool _isTracking = false;
   bool _isAutoPaused = false;
   bool _screenLockEnabled = true;
+  int _savedTripsCount = 14;
 
   DateTime? _startTime;
   int _totalSeconds = 0;
@@ -257,6 +292,18 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       await WakelockPlus.enable();
     } catch (_) {}
     _loadInitialWeather();
+    _loadTripCount();
+  }
+
+  void _loadTripCount() async {
+    try {
+      final trips = await DatabaseHelper.instance.getTrips();
+      if (mounted && trips.isNotEmpty) {
+        setState(() {
+          _savedTripsCount = trips.length;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadInitialWeather() async {
@@ -347,12 +394,11 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
-  /// Método público para iniciar/detener desde la barra inferior o desde el botón hero
+  /// Método público para alternar la grabación
   void toggleTracking() => _toggleTracking();
 
   void _toggleTracking() async {
     if (!_isTracking) {
-      // En Web, asegurar permisos de ubicación antes de iniciar
       if (kIsWeb) {
         LocationPermission perm = await Geolocator.checkPermission();
         if (perm == LocationPermission.denied) {
@@ -366,11 +412,13 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
       setState(() {
         _isTracking = true;
       });
+      widget.trackingNotifier?.value = true;
       _startNewTrip();
     } else {
       setState(() {
         _isTracking = false;
       });
+      widget.trackingNotifier?.value = false;
       _stopTrip();
     }
   }
@@ -531,6 +579,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
           );
         } catch (_) {}
 
+        _loadTripCount();
         _showSnack("✅ Salida guardada correctamente");
       } else {
         _showSnack("Trayecto demasiado corto, no se ha guardado.");
@@ -567,6 +616,24 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     ));
   }
 
+  String _getZoneName(double speed) {
+    if (speed < 0.8) return 'DETENIDO';
+    if (speed < 18.0) return 'ZONA RECUPERACIÓN';
+    if (speed < 30.0) return 'ZONA RESISTENCIA';
+    if (speed < 42.0) return 'ZONA RITMO / TEMPO';
+    if (speed < 50.0) return 'ZONA UMBRAL';
+    return 'ZONA ANAERÓBICA';
+  }
+
+  Color _getZoneColor(double speed) {
+    if (speed < 0.8) return SpeeDGATheme.textMuted;
+    if (speed < 18.0) return SpeeDGATheme.aeroCyan;
+    if (speed < 30.0) return SpeeDGATheme.neonLime;
+    if (speed < 42.0) return SpeeDGATheme.electricCyan;
+    if (speed < 50.0) return SpeeDGATheme.warningAmber;
+    return SpeeDGATheme.pulseRed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
@@ -579,7 +646,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
-  /// Diseño Vertical de alto rendimiento (Google Stitch Cockpit)
+  /// Opción 2 - Diseño Vertical: Velocímetro Gigante + 4 Cápsulas Bento
   Widget _buildPortraitLayout() {
     return Column(
       children: [
@@ -587,17 +654,12 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         if (_isTracking && _isAutoPaused) _buildAutoPauseBanner(),
         Expanded(
           child: Center(
-            child: SpeedometerGauge(
-              currentSpeed: _currentSpeed,
-              maxSpeed: _maxSpeed,
-              avgSpeed: _isTracking && _avgSpeed > 0 ? _avgSpeed : null,
-            ),
+            child: _buildGiantSpeedometerDisplay(),
           ),
         ),
         _buildSecondaryMetricsGrid(),
-        _buildBiometricsPerformanceStrip(),
         _buildUtilityBar(),
-        _buildActionButton(),
+        const SizedBox(height: 6),
       ],
     );
   }
@@ -606,7 +668,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
   Widget _buildLandscapeLayout() {
     return Row(
       children: [
-        // Lado izquierdo: Velocímetro HUD con arco
         Expanded(
           flex: 5,
           child: Column(
@@ -615,25 +676,19 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               if (_isTracking && _isAutoPaused) _buildAutoPauseBanner(),
               Expanded(
                 child: Center(
-                  child: SpeedometerGauge(
-                    currentSpeed: _currentSpeed,
-                    maxSpeed: _maxSpeed,
-                    avgSpeed: _isTracking && _avgSpeed > 0 ? _avgSpeed : null,
-                  ),
+                  child: _buildGiantSpeedometerDisplay(),
                 ),
               ),
             ],
           ),
         ),
-        // Lado derecho: Cuadrícula de métricas y botón
         Expanded(
           flex: 5,
           child: SingleChildScrollView(
             child: Column(
               children: [
                 _buildSecondaryMetricsGrid(),
-                _buildBiometricsPerformanceStrip(),
-                _buildActionButton(),
+                _buildUtilityBar(),
               ],
             ),
           ),
@@ -642,13 +697,13 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
-  /// Cabecera superior con estado de GPS, Batería, Bicicleta activa y Clima
+  /// Cabecera superior (Opción 2): GPS Lock + Batería + Bici Activa + Contador Historial
   Widget _buildStitchHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
       child: Column(
         children: [
-          // Fila 1: Píldora GPS Lock, Batería, Bicicleta Activa y Botón Historial
+          // Fila 1: Píldoras GPS Lock, Batería, Bici Carretera y Botón Historial con Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -681,7 +736,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           _satelliteCount >= 3 ? 'GPS LOCK' : 'GPS BUSCANDO',
                           style: const TextStyle(
                             fontFamily: 'Courier',
-                            fontSize: 10,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
                             color: Colors.white,
@@ -692,64 +747,105 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   ),
                   const SizedBox(width: 6),
 
-                  // Chip Satélites
+                  // Battery pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
                       color: SpeeDGATheme.darkCard,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: SpeeDGATheme.darkBorder),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.satellite_alt, size: 12, color: SpeeDGATheme.textSecondary),
-                        const SizedBox(width: 4),
+                        Icon(Icons.bolt, size: 13, color: SpeeDGATheme.textSecondary),
+                        SizedBox(width: 3),
                         Text(
-                          '$_satelliteCount',
-                          style: const TextStyle(
+                          '88%',
+                          style: TextStyle(
                             fontFamily: 'Courier',
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: SpeeDGATheme.neonLime,
+                            color: SpeeDGATheme.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 6),
+
+                  // Chip Bici Activa
+                  ValueListenableBuilder<Bike?>(
+                    valueListenable: BikeService.instance.activeBikeNotifier,
+                    builder: (context, bike, child) {
+                      final bikeName = bike?.name ?? 'Carretera Aero';
+                      return GestureDetector(
+                        onTap: widget.onNavigateToGarage,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: SpeeDGATheme.darkCard,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.pedal_bike, size: 13, color: SpeeDGATheme.neonLime),
+                              const SizedBox(width: 4),
+                              Text(
+                                bikeName,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
 
-              // Selector rápido de bicicleta activa
-              ValueListenableBuilder<Bike?>(
-                valueListenable: BikeService.instance.activeBikeNotifier,
-                builder: (context, bike, child) {
-                  final bikeName = bike?.name ?? 'Carretera Aero';
-                  return GestureDetector(
-                    onTap: widget.onNavigateToGarage,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: SpeeDGATheme.darkCard,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: SpeeDGATheme.neonLime.withOpacity(0.35)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.pedal_bike, size: 13, color: SpeeDGATheme.neonLime),
-                          const SizedBox(width: 5),
-                          Text(
-                            bikeName,
+              // Botón de Historial con Badge de número de rutas
+              GestureDetector(
+                onTap: widget.onNavigateToHistory,
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: SpeeDGATheme.darkCard,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: SpeeDGATheme.darkBorder),
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.history, color: Colors.white, size: 18),
+                      Positioned(
+                        top: -8,
+                        right: -8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: SpeeDGATheme.neonLime,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: SpeeDGATheme.neonGlow(blur: 6),
+                          ),
+                          child: Text(
+                            '$_savedTripsCount',
                             style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                              fontFamily: 'Courier',
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -759,7 +855,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
           // Fila 2: Chips de Clima, Viento y Reloj local
           Row(
             children: [
-              // Tiempo meteorológico
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -776,7 +871,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        _currentTemp != null ? "${_currentTemp!.toStringAsFixed(0)}°C" : "21°C",
+                        _currentTemp != null ? "${_currentTemp!.toStringAsFixed(0)}°C" : "21°C Despejado",
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -788,8 +883,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 ),
               ),
               const SizedBox(width: 6),
-
-              // Viento
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -821,8 +914,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 ),
               ),
               const SizedBox(width: 6),
-
-              // Reloj digital en tiempo real
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
@@ -883,15 +974,176 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     );
   }
 
-  /// Cuadrícula Bento de 4 métricas secundarias (Stitch: Distancia, Tiempo, Vel. Media, Desnivel)
+  /// Hero Central de la Opción 2: Velocímetro Gigante sin dial exterior
+  Widget _buildGiantSpeedometerDisplay() {
+    final double safeSpeed = _currentSpeed.clamp(0.0, 120.0);
+    final String zoneName = _getZoneName(safeSpeed);
+    final Color zoneColor = _getZoneColor(safeSpeed);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 1. Badge de Zona de Rendimiento
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: SpeeDGATheme.darkCard.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: zoneColor.withOpacity(0.4), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: zoneColor,
+                      shape: BoxShape.circle,
+                      boxShadow: SpeeDGATheme.neonGlow(color: zoneColor, blur: 8),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    zoneName,
+                    style: TextStyle(
+                      fontFamily: 'Courier',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: zoneColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 2. Dígitos gigantes de velocidad (Opción 2: 124px - 140px con resplandor neón)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                safeSpeed.toStringAsFixed(1),
+                style: TextStyle(
+                  fontFamily: 'Courier',
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  fontSize: 130,
+                  fontWeight: FontWeight.w900,
+                  color: SpeeDGATheme.neonLime,
+                  letterSpacing: -4.0,
+                  height: 0.92,
+                  shadows: [
+                    Shadow(
+                      color: SpeeDGATheme.neonLime.withOpacity(0.75),
+                      blurRadius: 28,
+                    ),
+                    Shadow(
+                      color: SpeeDGATheme.neonLime.withOpacity(0.35),
+                      blurRadius: 55,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // 3. Unidades KM / H con chip GPS
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "KM / H",
+                  style: TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 4.0,
+                    color: SpeeDGATheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: SpeeDGATheme.darkCardElevated,
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: SpeeDGATheme.darkBorder),
+                  ),
+                  child: const Text(
+                    "GPS",
+                    style: TextStyle(
+                      fontFamily: 'Courier',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: SpeeDGATheme.textSecondary,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // 4. Cápsula MÁX & Ritmo
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF090D11),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: SpeeDGATheme.darkBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "MÁX: ",
+                    style: TextStyle(
+                      fontFamily: 'Courier',
+                      fontSize: 11,
+                      color: SpeeDGATheme.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    "${_maxSpeed.toStringAsFixed(1)} km/h",
+                    style: const TextStyle(
+                      fontFamily: 'Courier',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Text(
+                    "  |  ",
+                    style: TextStyle(color: SpeeDGATheme.darkBorder),
+                  ),
+                  Text(
+                    _isTracking && _avgSpeed > 0
+                        ? "+${(_currentSpeed - _avgSpeed).toStringAsFixed(1)} km/h ritmo"
+                        : "+3.0 km/h ritmo",
+                    style: const TextStyle(
+                      fontFamily: 'Courier',
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: SpeeDGATheme.neonLime,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Cuadrícula Bento de 4 métricas secundarias limpias (Opción 2)
   Widget _buildSecondaryMetricsGrid() {
     final movingDuration = Duration(seconds: _movingSeconds);
     final formattedTime =
         "${movingDuration.inMinutes.remainder(60).toString().padLeft(2, '0')}:${movingDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}";
-    final pauseSeconds = (_totalSeconds - _movingSeconds).clamp(0, 999999);
-    final pauseDuration = Duration(seconds: pauseSeconds);
-    final formattedPause =
-        "${pauseDuration.inMinutes.remainder(60).toString().padLeft(2, '0')}:${pauseDuration.inSeconds.remainder(60).toString().padLeft(2, '0')}";
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
@@ -901,14 +1153,13 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.85,
+        childAspectRatio: 2.15,
         children: [
           // Tarjeta 1: DISTANCIA
           _buildBentoMetricCard(
             label: 'DISTANCIA',
             value: _totalDistance.toStringAsFixed(2),
             unit: 'km',
-            footnote: 'Meta: 30 km',
             icon: Icons.straighten,
             iconColor: SpeeDGATheme.neonLime,
           ),
@@ -917,7 +1168,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
             label: 'TIEMPO ACTIVO',
             value: formattedTime,
             unit: 'min',
-            footnote: 'Pausa: $formattedPause',
             icon: Icons.timer_outlined,
             iconColor: SpeeDGATheme.neonLime,
           ),
@@ -926,17 +1176,14 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
             label: 'VEL. MEDIA',
             value: _avgSpeed.toStringAsFixed(1),
             unit: 'km/h',
-            footnote: '+1.2 vs anterior',
             icon: Icons.show_chart,
             iconColor: SpeeDGATheme.aeroCyan,
-            footnoteColor: SpeeDGATheme.neonLime,
           ),
           // Tarjeta 4: DESNIVEL +
           _buildBentoMetricCard(
             label: 'DESNIVEL +',
             value: '+${_elevationGain.toStringAsFixed(0)}',
             unit: 'm',
-            footnote: 'Alt: ${_lastAltitude != null ? _lastAltitude!.toStringAsFixed(0) : "428"} m',
             icon: Icons.terrain,
             iconColor: SpeeDGATheme.warningAmber,
           ),
@@ -949,13 +1196,11 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
     required String label,
     required String value,
     required String unit,
-    required String footnote,
     required IconData icon,
     required Color iconColor,
-    Color? footnoteColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: SpeeDGATheme.bentoCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,7 +1213,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 label,
                 style: const TextStyle(
                   fontFamily: 'Courier',
-                  fontSize: 10,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   color: SpeeDGATheme.textMuted,
                   letterSpacing: 0.8,
@@ -985,7 +1230,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 value,
                 style: const TextStyle(
                   fontFamily: 'Courier',
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                   letterSpacing: -0.5,
@@ -1003,129 +1248,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               ),
             ],
           ),
-          Text(
-            footnote,
-            style: TextStyle(
-              fontFamily: 'Courier',
-              fontSize: 9.5,
-              color: footnoteColor ?? SpeeDGATheme.textSecondary,
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  /// Franja horizontal de Cadencia, Calorías y Estado Bluetooth (Card 5 en Stitch)
-  Widget _buildBiometricsPerformanceStrip() {
-    // Estimación dinámica de calorías quemadas basada en distancia y tiempo en marcha
-    final estimatedCalories = (_totalDistance * 28.0 + (_movingSeconds / 60.0) * 5.0).round();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 4.0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: SpeeDGATheme.bentoCardDecoration(),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Cadencia
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: SpeeDGATheme.darkCardElevated,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.sync, color: SpeeDGATheme.neonLime, size: 16),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('CADENCIA',
-                        style: TextStyle(fontFamily: 'Courier', fontSize: 9, color: SpeeDGATheme.textMuted)),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          _currentSpeed >= 1.0 ? '82' : '--',
-                          style: const TextStyle(
-                              fontFamily: 'Courier', fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        const SizedBox(width: 3),
-                        const Text('rpm',
-                            style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: SpeeDGATheme.textMuted)),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            Container(width: 1, height: 26, color: SpeeDGATheme.darkBorder),
-
-            // Calorías
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: SpeeDGATheme.darkCardElevated,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.local_fire_department, color: SpeeDGATheme.alertOrange, size: 16),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('CALORÍAS',
-                        style: TextStyle(fontFamily: 'Courier', fontSize: 9, color: SpeeDGATheme.textMuted)),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '$estimatedCalories',
-                          style: const TextStyle(
-                              fontFamily: 'Courier', fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        const SizedBox(width: 3),
-                        const Text('kcal',
-                            style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: SpeeDGATheme.textMuted)),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            Container(width: 1, height: 26, color: SpeeDGATheme.darkBorder),
-
-            // Estado Sensores
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('BLUETOOTH',
-                    style: TextStyle(fontFamily: 'Courier', fontSize: 9, color: SpeeDGATheme.textMuted)),
-                Text(
-                  'CONECTADO',
-                  style: TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
-                    color: SpeeDGATheme.neonLime,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1186,58 +1309,6 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Botón principal ergonómico de gran formato para guantes
-  Widget _buildActionButton() {
-    final isRecording = _isTracking;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _toggleTracking,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isRecording ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime,
-            foregroundColor: Colors.black,
-            elevation: 8,
-            shadowColor: (isRecording ? SpeeDGATheme.pulseRed : SpeeDGATheme.neonLime).withOpacity(0.5),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isRecording ? Icons.stop_circle_outlined : Icons.pedal_bike,
-                size: 26,
-                color: isRecording ? Colors.white : Colors.black,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                isRecording ? "DETENER TRAYECTO" : "INICIAR speeDGA",
-                style: TextStyle(
-                  color: isRecording ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  letterSpacing: 0.8,
-                  fontFamily: 'Courier',
-                ),
-              ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.chevron_right,
-                color: (isRecording ? Colors.white : Colors.black).withOpacity(0.7),
-                size: 20,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
