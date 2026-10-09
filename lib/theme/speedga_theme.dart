@@ -66,15 +66,38 @@ class SpeeDGATheme {
     );
   }
 
-  // Estilos de Texto Monospaciados con Cifras Tabulares
-  static TextStyle digitFont({
-    double fontSize = 28.0,
+  // Familias Tipográficas Oficiales de Google Stitch
+  static const String fontSpaceGrotesk = 'SpaceGrotesk';
+  static const String fontJetBrainsMono = 'JetBrainsMono';
+  static const String fontHankenGrotesk = 'HankenGrotesk';
+
+  // Velocímetro Gigante Hero (Space Grotesk 130px)
+  static TextStyle speedHeroFont({
+    double fontSize = 130.0,
     FontWeight fontWeight = FontWeight.w900,
-    Color color = textPrimary,
-    double letterSpacing = -1.0,
+    Color color = Colors.white,
+    double letterSpacing = -2.0,
   }) {
     return TextStyle(
-      fontFamily: 'Courier',
+      fontFamily: fontSpaceGrotesk,
+      fontFeatures: const [FontFeature.tabularFigures()],
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: 0.95,
+    );
+  }
+
+  // Cifras y Números de Telemetría (Space Grotesk con cifras tabulares)
+  static TextStyle digitFont({
+    double fontSize = 24.0,
+    FontWeight fontWeight = FontWeight.w900,
+    Color color = textPrimary,
+    double letterSpacing = -0.5,
+  }) {
+    return TextStyle(
+      fontFamily: fontSpaceGrotesk,
       fontFeatures: const [FontFeature.tabularFigures()],
       fontSize: fontSize,
       fontWeight: fontWeight,
@@ -84,18 +107,49 @@ class SpeeDGATheme {
     );
   }
 
+  // Etiquetas Técnicas y Chips de Datos (JetBrains Mono)
   static TextStyle labelTechnical({
-    double fontSize = 11.0,
+    double fontSize = 10.5,
     FontWeight fontWeight = FontWeight.w700,
     Color color = textSecondary,
-    double letterSpacing = 1.2,
+    double letterSpacing = 1.0,
   }) {
     return TextStyle(
-      fontFamily: 'Courier',
+      fontFamily: fontJetBrainsMono,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
       letterSpacing: letterSpacing,
+    );
+  }
+
+  // Títulos de Sección y Encabezados (Space Grotesk)
+  static TextStyle headingFont({
+    double fontSize = 17.0,
+    FontWeight fontWeight = FontWeight.w900,
+    Color color = textPrimary,
+    double letterSpacing = 1.0,
+  }) {
+    return TextStyle(
+      fontFamily: fontSpaceGrotesk,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  // Texto de Cuerpo y UI (Hanken Grotesk)
+  static TextStyle bodyFont({
+    double fontSize = 13.0,
+    FontWeight fontWeight = FontWeight.w400,
+    Color color = textSecondary,
+  }) {
+    return TextStyle(
+      fontFamily: fontHankenGrotesk,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
     );
   }
 }

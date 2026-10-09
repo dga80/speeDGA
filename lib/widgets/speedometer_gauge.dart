@@ -96,7 +96,7 @@ class SpeedometerGauge extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                           color: zoneColor,
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         ),
                       ),
                     ],
@@ -112,7 +112,7 @@ class SpeedometerGauge extends StatelessWidget {
                   Text(
                     safeSpeed.toStringAsFixed(1),
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                       fontFeatures: const [FontFeature.tabularFigures()],
                       fontSize: size * 0.28,
                       fontWeight: FontWeight.w900,
@@ -138,7 +138,7 @@ class SpeedometerGauge extends StatelessWidget {
                       const Text(
                         "KM / H",
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 3.5,
@@ -156,7 +156,7 @@ class SpeedometerGauge extends StatelessWidget {
                         child: const Text(
                           "GPS",
                           style: TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                             color: SpeeDGATheme.textSecondary,
@@ -182,10 +182,10 @@ class SpeedometerGauge extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      const Text(
                         "MÁX: ",
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                           fontSize: 10,
                           color: SpeeDGATheme.textMuted,
                           fontWeight: FontWeight.w600,
@@ -194,7 +194,7 @@ class SpeedometerGauge extends StatelessWidget {
                       Text(
                         "${maxSpeed.toStringAsFixed(1)} km/h",
                         style: const TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                           color: SpeeDGATheme.textPrimary,
@@ -204,7 +204,7 @@ class SpeedometerGauge extends StatelessWidget {
                         const Text(
                           "  |  MED: ",
                           style: TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 10,
                             color: SpeeDGATheme.textMuted,
                             fontWeight: FontWeight.w600,
@@ -213,7 +213,7 @@ class SpeedometerGauge extends StatelessWidget {
                         Text(
                           "${avgSpeed!.toStringAsFixed(1)}",
                           style: const TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
                             color: SpeeDGATheme.aeroCyan,

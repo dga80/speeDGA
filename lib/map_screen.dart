@@ -39,7 +39,7 @@ class MapScreen extends StatelessWidget {
         title: const Text(
           'Ruta de la Salida',
           style: TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontSpaceGrotesk,
             fontWeight: FontWeight.w900,
             fontSize: 17,
             letterSpacing: 1.0,
@@ -136,7 +136,7 @@ class MapScreen extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontJetBrainsMono,
             color: SpeeDGATheme.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.bold,
@@ -146,7 +146,7 @@ class MapScreen extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontSpaceGrotesk,
             color: SpeeDGATheme.neonLime,
             fontSize: 14,
             fontWeight: FontWeight.w900,

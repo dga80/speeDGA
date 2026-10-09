@@ -35,7 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Text(
               'AJUSTES',
               style: TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
                 letterSpacing: 1.2,
@@ -104,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     'CONFIGURACIÓN & SENSORES',
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
                       color: Colors.white,
@@ -166,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Courier',
+              fontFamily: SpeeDGATheme.fontJetBrainsMono,
               fontSize: 10,
               fontWeight: FontWeight.bold,
               color: color,
@@ -188,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text(
               title,
               style: const TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontWeight: FontWeight.w900,
                 fontSize: 12,
                 color: Colors.white,
@@ -200,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Text(
           badge,
           style: const TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontJetBrainsMono,
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: SpeeDGATheme.textMuted,
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
                     SizedBox(height: 2),
                     Text('Precisión milimétrica < 1.5m',
-                        style: TextStyle(fontSize: 11, color: SpeeDGATheme.neonLime, fontFamily: 'Courier')),
+                        style: TextStyle(fontSize: 11, color: SpeeDGATheme.neonLime, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
                   ],
                 ),
               ),
@@ -303,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SnackBar(content: Text('Buscando sensores ANT+/BLE cercanos...')),
                 );
               },
-              child: Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'Courier')),
+              child: Text(status, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
             )
           else
             Container(
@@ -315,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 status,
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontJetBrainsMono,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: statusColor,
@@ -411,7 +411,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: Text(
                               scale,
                               style: TextStyle(
-                                fontFamily: 'Courier',
+                                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: isSelected ? Colors.black : SpeeDGATheme.textSecondary,
@@ -570,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Text(
                           '< ${threshold.toStringAsFixed(1)} km/h',
                           style: const TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: SpeeDGATheme.neonLime,
@@ -630,7 +630,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Text(
                         u.toUpperCase(),
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: isSelected ? Colors.black : SpeeDGATheme.textSecondary,
@@ -730,7 +730,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(width: 6),
             const Text(
               'speeDGA TELEMETRY OS',
-              style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.w900, color: SpeeDGATheme.neonLime),
+              style: TextStyle(fontFamily: SpeeDGATheme.fontSpaceGrotesk, fontSize: 11, fontWeight: FontWeight.w900, color: SpeeDGATheme.neonLime),
             ),
           ],
         ),
@@ -763,7 +763,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.bug_report, size: 16, color: SpeeDGATheme.neonLime),
                 label: const Text(
                   'Diagnóstico Cockpit',
-                  style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontFamily: SpeeDGATheme.fontSpaceGrotesk, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -789,7 +789,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.refresh, size: 16, color: SpeeDGATheme.alertOrange),
                 label: const Text(
                   'Restablecer',
-                  style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontFamily: SpeeDGATheme.fontSpaceGrotesk, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

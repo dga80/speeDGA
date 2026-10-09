@@ -34,7 +34,7 @@ class _GarageScreenState extends State<GarageScreen> {
             const Text(
               'GARAJE ACTIVO',
               style: TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontWeight: FontWeight.w900,
                 fontSize: 18,
                 letterSpacing: 1.2,
@@ -87,7 +87,7 @@ class _GarageScreenState extends State<GarageScreen> {
                   const Text(
                     'OTRAS BICICLETAS EN RESERVA',
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: SpeeDGATheme.textSecondary,
@@ -97,7 +97,7 @@ class _GarageScreenState extends State<GarageScreen> {
                   Text(
                     '${otherBikes.length} en garaje',
                     style: const TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 11,
                       color: SpeeDGATheme.textMuted,
                     ),
@@ -162,7 +162,7 @@ class _GarageScreenState extends State<GarageScreen> {
                   const Text(
                     'EN USO • PREDETERMINADA',
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       color: SpeeDGATheme.neonLime,
@@ -183,7 +183,7 @@ class _GarageScreenState extends State<GarageScreen> {
                     child: Text(
                       bike.specs,
                       style: const TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: SpeeDGATheme.aeroCyan,
@@ -242,7 +242,7 @@ class _GarageScreenState extends State<GarageScreen> {
                     const Text(
                       'ODÓMETRO TOTAL',
                       style: TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: SpeeDGATheme.textMuted,
@@ -258,7 +258,7 @@ class _GarageScreenState extends State<GarageScreen> {
                       child: const Text(
                         'CALIBRADO GPS',
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                           color: SpeeDGATheme.neonLime,
@@ -275,7 +275,7 @@ class _GarageScreenState extends State<GarageScreen> {
                     Text(
                       bike.totalDistanceKm.toStringAsFixed(1),
                       style: const TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                         fontSize: 42,
                         fontWeight: FontWeight.w900,
                         color: SpeeDGATheme.textPrimary,
@@ -286,7 +286,7 @@ class _GarageScreenState extends State<GarageScreen> {
                     const Text(
                       'KM',
                       style: TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         color: SpeeDGATheme.neonLime,
@@ -306,7 +306,7 @@ class _GarageScreenState extends State<GarageScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('DESNIVEL ACUM.',
-                                  style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: 'Courier')),
+                                  style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
                               Text('+${bike.totalElevationM.toStringAsFixed(0)} m',
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
                             ],
@@ -323,7 +323,7 @@ class _GarageScreenState extends State<GarageScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('ACTIVIDADES',
-                                  style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: 'Courier')),
+                                  style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
                               Text('${bike.totalSessions} salidas',
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
                             ],
@@ -345,7 +345,7 @@ class _GarageScreenState extends State<GarageScreen> {
               const Text(
                 'VIDA ÚTIL DE COMPONENTES',
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   color: SpeeDGATheme.textSecondary,
@@ -359,7 +359,7 @@ class _GarageScreenState extends State<GarageScreen> {
                   Text(
                     'Diagnóstico OK',
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: SpeeDGATheme.neonLime,
@@ -437,7 +437,7 @@ class _GarageScreenState extends State<GarageScreen> {
               Text(
                 '${pct.toStringAsFixed(0)}%',
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontJetBrainsMono,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: accentColor,
@@ -458,7 +458,7 @@ class _GarageScreenState extends State<GarageScreen> {
           const SizedBox(height: 6),
           Text(
             detail,
-            style: const TextStyle(fontSize: 10, color: SpeeDGATheme.textMuted, fontFamily: 'Courier'),
+            style: const TextStyle(fontSize: 10, color: SpeeDGATheme.textMuted, fontFamily: SpeeDGATheme.fontJetBrainsMono),
           ),
         ],
       ),
@@ -502,7 +502,7 @@ class _GarageScreenState extends State<GarageScreen> {
                     child: Text(
                       bike.type.toUpperCase(),
                       style: const TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: SpeeDGATheme.textSecondary,
@@ -530,10 +530,10 @@ class _GarageScreenState extends State<GarageScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('ODÓMETRO',
-                        style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: 'Courier')),
+                        style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
                     Text('${bike.totalDistanceKm.toStringAsFixed(1)} KM',
                         style: const TextStyle(
-                            fontFamily: 'Courier', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                            fontFamily: SpeeDGATheme.fontSpaceGrotesk, fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                   ],
                 ),
               ),
@@ -542,7 +542,7 @@ class _GarageScreenState extends State<GarageScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('SALIDAS',
-                        style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: 'Courier')),
+                        style: TextStyle(fontSize: 9, color: SpeeDGATheme.textMuted, fontFamily: SpeeDGATheme.fontJetBrainsMono)),
                     Text('${bike.totalSessions} rutas',
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
                   ],
@@ -573,7 +573,7 @@ class _GarageScreenState extends State<GarageScreen> {
               child: const Text(
                 'SELECCIONAR COMO ACTIVA',
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
@@ -758,7 +758,7 @@ class _GarageScreenState extends State<GarageScreen> {
         title: Text(
           '¿Eliminar "${bike.name}"?',
           style: const TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontSpaceGrotesk,
             fontWeight: FontWeight.bold,
             color: Colors.white,
             fontSize: 16,
@@ -820,7 +820,7 @@ class _GarageScreenState extends State<GarageScreen> {
           child: Text(
             'GARAJE VACÍO',
             style: TextStyle(
-              fontFamily: 'Courier',
+              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: Colors.white,
@@ -848,7 +848,7 @@ class _GarageScreenState extends State<GarageScreen> {
             label: const Text(
               'AÑADIR MI PRIMERA BICICLETA',
               style: TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontWeight: FontWeight.w900,
                 fontSize: 13,
                 letterSpacing: 0.8,

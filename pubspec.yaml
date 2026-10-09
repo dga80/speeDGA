@@ -34,8 +34,7 @@ dependencies:
   # Gestión de permisos en tiempo de ejecución
   permission_handler: ^11.3.1
   http: ^1.2.0
-  
-
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -47,3 +46,15 @@ flutter:
 
   assets:
     - assets/database/
+    - assets/fonts/
+
+  fonts:
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-VariableFont_wght.ttf
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-VariableFont_wght.ttf
+    - family: HankenGrotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk-VariableFont_wght.ttf

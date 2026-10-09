@@ -56,6 +56,7 @@ class SpeeDGAApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: SpeeDGATheme.oledBlack,
+        fontFamily: SpeeDGATheme.fontHankenGrotesk,
         colorScheme: const ColorScheme.dark(
           primary: SpeeDGATheme.neonLime,
           surface: SpeeDGATheme.darkCard,
@@ -152,7 +153,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                 color: color,
@@ -204,7 +205,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 Text(
                   isTracking ? 'DETENER' : 'INICIAR',
                   style: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
@@ -735,7 +736,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                         Text(
                           _satelliteCount >= 3 ? 'GPS LOCK' : 'GPS BUSCANDO',
                           style: const TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.8,
@@ -762,7 +763,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                         Text(
                           '88%',
                           style: TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             color: SpeeDGATheme.textSecondary,
@@ -847,7 +848,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
                               color: Colors.black,
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             ),
                           ),
                         ),
@@ -882,7 +883,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           const Text(
                             'CLIMA',
                             style: TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontJetBrainsMono,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               color: SpeeDGATheme.textMuted,
@@ -902,7 +903,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           Text(
                             _currentTemp != null ? "${_currentTemp!.toStringAsFixed(0)}°" : "21°",
                             style: const TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
@@ -947,7 +948,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           Text(
                             'VIENTO',
                             style: TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontJetBrainsMono,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               color: SpeeDGATheme.textMuted,
@@ -964,7 +965,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           Text(
                             _windSpeed != null ? _windSpeed!.toStringAsFixed(0) : "8",
                             style: const TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               color: SpeeDGATheme.aeroCyan,
@@ -977,7 +978,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontFamily: 'Courier',
+                                fontFamily: SpeeDGATheme.fontJetBrainsMono,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                                 color: SpeeDGATheme.textMuted,
@@ -1010,7 +1011,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           Text(
                             'HORA',
                             style: TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontJetBrainsMono,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               color: SpeeDGATheme.textMuted,
@@ -1027,7 +1028,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                           return Text(
                             "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}",
                             style: const TextStyle(
-                              fontFamily: 'Courier',
+                              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
@@ -1069,7 +1070,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              fontFamily: 'Courier',
+              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
             ),
           ),
         ],
@@ -1112,7 +1113,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   Text(
                     zoneName,
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -1130,7 +1131,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               child: Text(
                 safeSpeed.toStringAsFixed(1),
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontFeatures: const [FontFeature.tabularFigures()],
                   fontSize: 130,
                   fontWeight: FontWeight.w900,
@@ -1159,7 +1160,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                 const Text(
                   "KM / H",
                   style: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4.0,
@@ -1177,7 +1178,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   child: const Text(
                     "GPS",
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: SpeeDGATheme.textSecondary,
@@ -1203,7 +1204,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   const Text(
                     "MÁX: ",
                     style: TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 11,
                       color: SpeeDGATheme.textMuted,
                       fontWeight: FontWeight.w600,
@@ -1212,7 +1213,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                   Text(
                     "${_maxSpeed.toStringAsFixed(1)} km/h",
                     style: const TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -1227,7 +1228,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
                         ? "+${(_currentSpeed - _avgSpeed).toStringAsFixed(1)} km/h ritmo"
                         : "+3.0 km/h ritmo",
                     style: const TextStyle(
-                      fontFamily: 'Courier',
+                      fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: SpeeDGATheme.neonLime,
@@ -1315,7 +1316,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               Text(
                 label,
                 style: const TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   color: SpeeDGATheme.textMuted,
@@ -1332,7 +1333,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               Text(
                 value,
                 style: const TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -1343,7 +1344,7 @@ class _SpeedometerPageState extends State<SpeedometerPage> {
               Text(
                 unit,
                 style: const TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontJetBrainsMono,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: SpeeDGATheme.textMuted,

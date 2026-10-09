@@ -117,7 +117,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const Text(
               'MIS SALIDAS EN BICI',
               style: TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontWeight: FontWeight.w900,
                 fontSize: 17,
                 letterSpacing: 1.1,
@@ -189,7 +189,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     const Text(
                       'HISTORIAL DE RUTAS',
                       style: TextStyle(
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                         color: SpeeDGATheme.textSecondary,
@@ -277,7 +277,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   selectedColor: SpeeDGATheme.neonLime,
                   backgroundColor: SpeeDGATheme.darkCard,
                   labelStyle: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: isSelected ? Colors.black : SpeeDGATheme.textSecondary,
@@ -345,7 +345,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Text(
                           'TELEMETRÍA ACUMULADA',
                           style: TextStyle(
-                            fontFamily: 'Courier',
+                            fontFamily: SpeeDGATheme.fontJetBrainsMono,
                             fontSize: 9.5,
                             fontWeight: FontWeight.w900,
                             color: SpeeDGATheme.neonLime,
@@ -385,7 +385,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       const Text(
                         'SINCRONIZADO',
                         style: TextStyle(
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
                           color: SpeeDGATheme.neonLime,
@@ -457,7 +457,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   children: [
                     const Text(
                       'Desgaste de Cadena & Revisión',
-                      style: TextStyle(fontSize: 11, color: SpeeDGATheme.textSecondary, fontFamily: 'Courier'),
+                      style: TextStyle(fontSize: 11, color: SpeeDGATheme.textSecondary, fontFamily: SpeeDGATheme.fontJetBrainsMono),
                     ),
                     Text(
                       '${chainWearPct.toStringAsFixed(0)}% (${kmRestantes.toStringAsFixed(0)} km rest.)',
@@ -465,7 +465,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: SpeeDGATheme.neonLime,
-                        fontFamily: 'Courier',
+                        fontFamily: SpeeDGATheme.fontJetBrainsMono,
                       ),
                     ),
                   ],
@@ -510,7 +510,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Courier',
+              fontFamily: SpeeDGATheme.fontSpaceGrotesk,
               fontSize: 9,
               fontWeight: FontWeight.w800,
               color: SpeeDGATheme.textMuted,
@@ -525,7 +525,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: valueColor,
@@ -536,7 +536,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Text(
                 unit,
                 style: const TextStyle(
-                  fontFamily: 'Courier',
+                  fontFamily: SpeeDGATheme.fontJetBrainsMono,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   color: SpeeDGATheme.neonLime,
@@ -552,7 +552,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             style: TextStyle(
               fontSize: 9.5,
               color: subColor,
-              fontFamily: 'Courier',
+              fontFamily: SpeeDGATheme.fontJetBrainsMono,
             ),
           ),
         ],
@@ -614,7 +614,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             child: Text(
                               tagLabel,
                               style: TextStyle(
-                                fontFamily: 'Courier',
+                                fontFamily: SpeeDGATheme.fontJetBrainsMono,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w900,
                                 color: tagColor,
@@ -629,7 +629,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         style: const TextStyle(
                           fontSize: 11,
                           color: SpeeDGATheme.textSecondary,
-                          fontFamily: 'Courier',
+                          fontFamily: SpeeDGATheme.fontJetBrainsMono,
                         ),
                       ),
                     ],
@@ -703,7 +703,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 const Text(
                   'PERFIL ALTITUD',
                   style: TextStyle(
-                    fontFamily: 'Courier',
+                    fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
                     color: SpeeDGATheme.textMuted,
@@ -742,7 +742,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             Text(
               label,
               style: const TextStyle(
-                fontFamily: 'Courier',
+                fontFamily: SpeeDGATheme.fontSpaceGrotesk,
                 fontSize: 9.5,
                 fontWeight: FontWeight.bold,
                 color: SpeeDGATheme.textMuted,
@@ -754,7 +754,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         Text(
           value,
           style: TextStyle(
-            fontFamily: 'Courier',
+            fontFamily: SpeeDGATheme.fontSpaceGrotesk,
             fontSize: 13,
             fontWeight: FontWeight.w900,
             color: color,
